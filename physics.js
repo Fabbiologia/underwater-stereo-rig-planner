@@ -168,8 +168,18 @@
    * y up), both in air and refracted into water through a flat port.
    * nPerSide samples per side, going around the rectangle.
    */
-  /** Ray for normalised image coordinates (u, v in -1..1) through the chosen port. */
-  function traceImageRay(lm, u, v, n, port) {
+  /** Clamp a unit direction to a maximum polar angle from +z, keeping its azimuth. */
+  function capDirection(d, capRad) {
+    var theta = Math.acos(Math.max(-1, Math.min(1, d[2])));
+    if (theta <= capRad) return { dir: d, capped: false };
+    var phi = Math.atan2(d[1], d[0]);
+    return { dir: dirFromPolar(capRad, phi), capped: true };
+  }
+
+  /** Ray for normalised image coordinates (u, v in -1..1) through the chosen port.
+   *  capDeg limits the usable off-axis angle: frame corners beyond it are folded
+   *  back onto the cap (fisheye edges are at grazing incidence and normally masked). */
+  function traceImageRay(lm, u, v, n, port, capDeg) {
     var rx = u * lm.gx, ry = v * lm.gy;
     var r = Math.sqrt(rx * rx + ry * ry);
     var thetaAir = lm.proj.ginv(r);
@@ -182,10 +192,16 @@
       water = dirFromPolar(Math.asin(Math.min(1, Math.sin(thetaAir) / n)), phi);
     }
     var thetaWater = Math.acos(Math.max(-1, Math.min(1, water[2])));
-    return { u: u, v: v, air: air, water: water, origin: origin, thetaAir: thetaAir * RAD, thetaWater: thetaWater * RAD };
+    var cappedW = false, cappedA = false;
+    if (capDeg != null && capDeg < 90) {
+      var cw = capDirection(water, capDeg * DEG), ca = capDirection(air, capDeg * DEG);
+      water = cw.dir; air = ca.dir; cappedW = cw.capped; cappedA = ca.capped;
+    }
+    return { u: u, v: v, air: air, water: water, origin: origin, cappedWater: cappedW, cappedAir: cappedA,
+             thetaAir: thetaAir * RAD, thetaWater: thetaWater * RAD };
   }
 
-  function boundaryRays(mode, n, nPerSide, port) {
+  function boundaryRays(mode, n, nPerSide, port, capDeg) {
     var lm = lensModel(mode);
     var pts = [];
     var N = nPerSide || 12;
@@ -197,7 +213,7 @@
         var t = i / N;
         var u = a[0] + (b[0] - a[0]) * t;   // -1..1 across width
         var v = a[1] + (b[1] - a[1]) * t;   // -1..1 across height
-        pts.push(traceImageRay(lm, u, v, n, port));
+        pts.push(traceImageRay(lm, u, v, n, port, capDeg));
       }
     }
     return pts;
@@ -260,12 +276,13 @@
    * Rays missing the plane are clamped to a far distance so the polygon stays
    * closed (flagged with `clipped: true`).
    */
-  function footprint(mode, pose, n, Z, nPerSide, medium, port) {
-    var rays = boundaryRays(mode, n, nPerSide, port);
-    var poly = [], clipped = false;
+  function footprint(mode, pose, n, Z, nPerSide, medium, port, capDeg) {
+    var rays = boundaryRays(mode, n, nPerSide, port, capDeg);
+    var poly = [], clipped = false, capped = false;
     var far = Z * 50 + 1000;
     for (var i = 0; i < rays.length; i++) {
       var inAir = medium === 'air';
+      if (inAir ? rays[i].cappedAir : rays[i].cappedWater) capped = true;
       var d = toRig(inAir ? rays[i].air : rays[i].water, pose);
       var o = inAir ? [0, 0, 0] : toRig(rays[i].origin, pose);
       var C = [pose.center[0] + o[0], pose.center[1] + o[1], pose.center[2] + o[2]];
@@ -278,7 +295,8 @@
       }
       poly.push(p);
     }
-    return { poly: poly, clipped: clipped, rays: rays };
+    var axis = hitPlane(pose.center, toRig([0, 0, 1], pose), Z) || [pose.center[0], pose.center[1]];
+    return { poly: poly, clipped: clipped, capped: capped, rays: rays, axis: axis };
   }
 
   /* ------------------------------------------------------------------ */
@@ -345,6 +363,74 @@
     var det = a1 * b2 - a2 * b1;
     if (Math.abs(det) < 1e-12) return P;
     return [(b2 * c1 - b1 * c2) / det, (a1 * c2 - a2 * c1) / det];
+  }
+
+  function isConvex(poly) {
+    var sign = 0;
+    for (var i = 0; i < poly.length; i++) {
+      var a = poly[i], b = poly[(i + 1) % poly.length], c = poly[(i + 2) % poly.length];
+      var cr = (b[0] - a[0]) * (c[1] - b[1]) - (b[1] - a[1]) * (c[0] - b[0]);
+      if (Math.abs(cr) < 1e-12) continue;
+      if (sign === 0) sign = cr > 0 ? 1 : -1; else if ((cr > 0 ? 1 : -1) !== sign) return false;
+    }
+    return true;
+  }
+
+  /**
+   * Intersection of two camera footprints. Fisheye footprints on a plane are
+   * star-shaped (around the point where the optical axis meets the plane) but
+   * not convex, so B is fanned into triangles from its axis point and A is
+   * clipped by each triangle; the pieces tile A ∩ B exactly. When both are
+   * convex a single polygon is returned.
+   */
+  function intersectFootprints(A, B, axisB) {
+    if (isConvex(A) && isConvex(B)) {
+      var one = clipPolygon(A, B), a1 = one.length >= 3 ? polyArea(one) : 0;
+      return finishOverlap(a1 > 1e-12 ? [one] : [], a1, true);
+    }
+    var pieces = [], area = 0;
+    for (var i = 0; i < B.length; i++) {
+      var tri = [axisB, B[i], B[(i + 1) % B.length]];
+      if (polyArea(tri) < 1e-12) continue;
+      var piece = clipPolygon(A, tri);
+      if (piece.length < 3) continue;
+      var a = polyArea(piece);
+      if (a > 1e-12) { pieces.push(piece); area += a; }
+    }
+    return finishOverlap(pieces, area, false);
+  }
+  function pointInPoly(poly, x, y) {
+    var c = false;
+    for (var i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+      var xi = poly[i][0], yi = poly[i][1], xj = poly[j][0], yj = poly[j][1];
+      if (((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi)) c = !c;
+    }
+    return c;
+  }
+  /** Boundary of A ∩ B as a list of short segments: the parts of each boundary that lie inside the other polygon. */
+  function overlapOutline(A, B, sub) {
+    var segs = [], k = sub || 6;
+    [[A, B], [B, A]].forEach(function (pair) {
+      var P1 = pair[0], P2 = pair[1], prev = null, prevIn = false;
+      for (var i = 0; i <= P1.length; i++) {
+        var a = P1[i % P1.length], b = P1[(i + 1) % P1.length];
+        for (var t = 0; t < k; t++) {
+          var f = t / k, pt = [a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f];
+          var inside = pointInPoly(P2, pt[0], pt[1]);
+          if (prev && prevIn && inside) segs.push([prev, pt]);
+          prev = pt; prevIn = inside;
+        }
+      }
+    });
+    return segs;
+  }
+  function finishOverlap(pieces, area, convex) {
+    var all = [];
+    pieces.forEach(function (p) { all = all.concat(p); });
+    var bounds = all.length ? polyBounds(all) : { minx: 0, maxx: 0, miny: 0, maxy: 0, w: 0, h: 0 };
+    var cx = 0, cy = 0;
+    pieces.forEach(function (p) { var a = polyArea(p), c = polyCentroid(p); cx += c[0] * a; cy += c[1] * a; });
+    return { polys: pieces, area: area, convex: convex, bounds: bounds, centroid: area > 0 ? [cx / area, cy / area] : [0, 0] };
   }
 
   /* ------------------------------------------------------------------ */
@@ -437,6 +523,7 @@
    *   visibility: horizontal visibility (m)
    *   port:   { type: 'flat' } or { type: 'dome', R, t, ng, offset }   (metres)
    *   nearFocusAir: the lens's closest sharp distance in air (m), optional
+   *   capDeg: usable off-axis angle (deg, default 65); frame corners beyond it are ignored
    * }
    */
   function evaluate(cfg) {
@@ -444,6 +531,7 @@
     var mode = cfg.mode, rig = cfg.rig, Z = cfg.Z;
     var port = cfg.port && cfg.port.type === 'dome' ? cfg.port : { type: 'flat' };
     var dome = port.type === 'dome';
+    var capDeg = cfg.capDeg != null ? cfg.capDeg : 65;
     var lm = lensModel(mode);
     var portrait = Math.abs(((rig.roll || 0) % 180)) === 90;
     // field angles in the baseline plane (horizontal) and across it
@@ -461,16 +549,17 @@
     }
 
     var poses = cameraPoses(rig);
-    var fpA = footprint(mode, poses[0], n, Z, 12, 'water', port);
-    var fpB = footprint(mode, poses[1], n, Z, 12, 'water', port);
-    var fpAair = footprint(mode, poses[0], n, Z, 12, 'air');
-    var fpBair = footprint(mode, poses[1], n, Z, 12, 'air');
-    var ov = clipPolygon(fpA.poly, fpB.poly);
-    var areaA = polyArea(fpA.poly), areaOv = polyArea(ov);
-    var bA = polyBounds(fpA.poly), bOv = ov.length ? polyBounds(ov) : { w: 0, h: 0 };
+    var fpA = footprint(mode, poses[0], n, Z, 12, 'water', port, capDeg);
+    var fpB = footprint(mode, poses[1], n, Z, 12, 'water', port, capDeg);
+    var fpAair = footprint(mode, poses[0], n, Z, 12, 'air', null, capDeg);
+    var fpBair = footprint(mode, poses[1], n, Z, 12, 'air', null, capDeg);
+    var ov = intersectFootprints(fpA.poly, fpB.poly, fpB.axis);
+    var areaA = polyArea(fpA.poly), areaOv = ov.area;
+    var bA = polyBounds(fpA.poly), bOv = ov.bounds;
 
-    var od = overlapDistances(hWater / 2, rig.baseline, rig.convergence);
-    var o1 = overlapAt(hWater / 2, rig.baseline, rig.convergence, Z);
+    var hUse = Math.min(hWater / 2, capDeg);   // usable half angle in the baseline plane
+    var od = overlapDistances(hUse, rig.baseline, rig.convergence);
+    var o1 = overlapAt(hUse, rig.baseline, rig.convergence, Z);
 
     // a flat port multiplies the focal length by n; a centred dome leaves it unchanged
     var fpxWater = dome ? lm.fpx : lm.fpx * n;
@@ -494,7 +583,8 @@
     return {
       n: n, lens: lm, fpxWater: fpxWater, port: port, focus: focus,
       fov: { hAir: hAir, vAir: vAir, dAir: lm.cornerAngleAir, hWater: hWater, vWater: vWater, dWater: dWater,
-             maxFlatPort: maxFlatPortFov(n) },
+             maxFlatPort: maxFlatPortFov(n), capDeg: capDeg, hUsable: 2 * hUse, vUsable: 2 * Math.min(vWater / 2, capDeg) },
+      capped: fpA.capped,
       poses: poses,
       footprints: { A: fpA, B: fpB, Aair: fpAair, Bair: fpBair, overlap: ov },
       areas: { single: areaA, overlap: areaOv, fraction: areaA > 0 ? areaOv / areaA : 0 },
@@ -524,6 +614,7 @@
     domeObjectForImage: domeObjectForImage,
     minDomeRadius: minDomeRadius,
     traceImageRay: traceImageRay,
+    capDirection: capDirection,
     boundaryRays: boundaryRays,
     cameraPoses: cameraPoses,
     toRig: toRig,
@@ -532,6 +623,10 @@
     polyBounds: polyBounds,
     polyCentroid: polyCentroid,
     clipPolygon: clipPolygon,
+    isConvex: isConvex,
+    pointInPoly: pointInPoly,
+    overlapOutline: overlapOutline,
+    intersectFootprints: intersectFootprints,
     overlapDistances: overlapDistances,
     overlapAt: overlapAt,
     pointPrecision: pointPrecision,

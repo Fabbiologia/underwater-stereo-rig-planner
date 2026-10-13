@@ -286,6 +286,11 @@ details.theory li { margin-bottom: 4px; }
         <div class="pair"><input type="range" id="sig" min="0.1" max="2" step="0.05" value="0.5"><input type="number" id="sigN" min="0.02" max="5" step="0.05" value="0.5"><span class="unit">px</span></div>
       </div>
       <p class="hint">0.3–0.5 px is typical for SIFT-type tie points after bundle adjustment under water; use 1 px for conservative planning.</p>
+      <div class="field">
+        <label for="cap"><span>Usable field: max off-axis angle</span></label>
+        <div class="pair"><input type="range" id="cap" min="35" max="85" step="1" value="65"><input type="number" id="capN" min="20" max="89" step="1" value="65"><span class="unit">°</span></div>
+      </div>
+      <p class="hint">Frame corners beyond this angle are left out of the footprint and overlap. Fisheye edges see the subject at grazing incidence and are normally masked; a flat port never exceeds 49°, so this mostly matters for dome ports and the in-air ghost.</p>
     </section>
 
     <section class="group">
@@ -331,7 +336,7 @@ details.theory li { margin-bottom: 4px; }
         <h3>3. Where the two fields overlap</h3>
         <p>With in-water half angle h in the plane of the baseline, baseline b and total convergence θ, each camera's footprint on a plane at distance Z spans Z·tan(h ± θ/2) either side of its own position. From this:</p>
         <div class="eq">Z<sub>near</sub> = b / (2 tan(h + θ/2))   — overlap begins<br>Z<sub>full</sub> = b / (tan(h + θ/2) − tan(h − θ/2))   — the two footprints coincide (100 %)<br>Z<sub>cross</sub> = b / (2 tan(θ/2))   — optical axes cross<br>Z<sub>far</sub> = b / (2 tan(θ/2 − h))   — overlap ends (only when θ/2 &gt; h)</div>
-        <p>The 3-D view intersects the full refracted frustums with the subject plane and clips the two polygons against each other, so the area and percentage shown in the tiles include the keystone effect of toe-in; the chart uses the width along the centreline, which is what the formulas above describe.</p>
+        <p>The 3-D view intersects the refracted frustums with the subject plane and clips the two polygons against each other, so the area and percentage shown in the tiles include the keystone effect of toe-in; the chart uses the width along the centreline, which is what the formulas above describe. Frame corners beyond the usable off-axis angle (65° by default) are folded back onto that angle before the intersection: behind a flat port nothing exceeds 49° anyway, but behind a dome a 122° fisheye reaches 80° at the corners, where the plane is seen at grazing incidence and the footprint would otherwise be a meaningless star shape.</p>
         <h3>4. Depth precision</h3>
         <p>A point seen from two cameras whose rays meet at angle γ, each ray carrying an angular uncertainty σ<sub>α</sub> = σ<sub>px</sub> / (n<sub>w</sub> f<sub>px</sub>), is located with</p>
         <div class="eq">σ<sub>depth</sub> = R · σ<sub>α</sub> / (√2 · sin(γ/2))      σ<sub>lateral</sub> = R · σ<sub>α</sub> / (√2 · cos(γ/2))<br>γ = 2 · atan( b / 2Z )  for a point on the rig axis,  R ≈ Z</div>
@@ -383,7 +388,7 @@ details.theory li { margin-bottom: 4px; }
     Z: 2, water: 'sea', S: 35, T: 22, lambda: 550, visibility: 12,
     sigmaPx: 0.5,
     refObject: 'diver',
-    port: 'flat', domeR: 76, domeT: 4, domeN: 1.49, domeOff: 0,
+    port: 'flat', domeR: 76, domeT: 4, domeN: 1.49, domeOff: 0, capDeg: 65,
     show: { air: true, grid: true, labels: true }
   };
   var SAL = { sea: 35, brackish: 15, fresh: 0 };
@@ -417,7 +422,7 @@ details.theory li { margin-bottom: 4px; }
       rig: { baseline: state.baseline, convergence: state.convergence, roll: state.roll },
       water: { S: salinity(), T: state.T, lambda: state.lambda },
       Z: Zover != null ? Zover : state.Z, sigmaPx: state.sigmaPx, visibility: state.visibility,
-      port: portCfg(portType), nearFocusAir: currentCamera().nearFocusAir
+      port: portCfg(portType), nearFocusAir: currentCamera().nearFocusAir, capDeg: state.capDeg
     });
   }
 
@@ -646,10 +651,12 @@ details.theory li { margin-bottom: 4px; }
       });
     }
     var ov = fp.overlap;
-    if (ov.length >= 3) {
-      dyn.add(polyMesh(ov, Z - 0.006, cOv, 0.45, 2));
-      dyn.add(loopFromPoints(ov, Z - 0.006, cOv, 1));
-      var c0 = P.polyCentroid(ov), bo = ev.size.overlap;
+    if (ov.area > 0) {
+      ov.polys.forEach(function (poly) { var m = polyMesh(poly, Z - 0.006, cOv, 0.45, 2); if (m) dyn.add(m); });
+      var segs = P.overlapOutline(fp.A.poly, fp.B.poly, 8), segPts = [];
+      segs.forEach(function (sg) { segPts.push(new THREE.Vector3(sg[0][0], sg[0][1], Z - 0.006), new THREE.Vector3(sg[1][0], sg[1][1], Z - 0.006)); });
+      if (segPts.length) { var sl = new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(segPts), new THREE.LineBasicMaterial({ color: cOv, transparent: true, opacity: 1, depthWrite: false })); sl.renderOrder = 4; dyn.add(sl); }
+      var c0 = ov.centroid, bo = ev.size.overlap;
       addLabel('overlap ' + bo.w.toFixed(2) + ' × ' + bo.h.toFixed(2) + ' m · ' + pct(ev.areas.fraction) + ' of one frame', [c0[0], c0[1] - bo.h * 0.25, Z - 0.01], '#1b1b1b', hexToRgba(TH.ov, 0.95));
     } else {
       addLabel('no stereo overlap at this distance', [0, 0, Z - 0.01], '#ffffff', hexToRgba(TH.crit, 0.95));
@@ -826,7 +833,7 @@ details.theory li { margin-bottom: 4px; }
     var pr = ev.precision;
     $('tiles').innerHTML =
       tile('Field of view under water (H × V)', deg(ev.fov.hWater, 0) + ' × ' + deg(ev.fov.vWater, 0), '', (ev.port.type === 'dome' ? 'dome R ' + state.domeR + ' mm' : 'flat port') + ' · in air ' + deg(ev.fov.hAir, 0) + ' × ' + deg(ev.fov.vAir, 0) + ' · diag ' + deg(ev.fov.dWater, 0)) +
-      tile('One frame covers at Z', ev.size.single.w.toFixed(2) + ' × ' + ev.size.single.h.toFixed(2), 'm', ev.areas.single.toFixed(2) + ' m² · ' + (ev.size.single.w / ev.size.single.h).toFixed(2) + ':1') +
+      tile('One frame covers at Z', ev.size.single.w.toFixed(2) + ' × ' + ev.size.single.h.toFixed(2), 'm', ev.areas.single.toFixed(2) + ' m² · ' + (ev.size.single.w / ev.size.single.h).toFixed(2) + ':1' + (ev.capped ? ' · corners capped at ' + state.capDeg + '°' : '')) +
       tile('Stereo overlap at Z', pct(ev.areas.fraction), '', ev.areas.overlap.toFixed(2) + ' m² · centreline ' + pct(ev.overlap1d.fraction)) +
       tile('Depth precision σ<sub>Z</sub> at Z', fmtMm(pr.sigmaDepth), '', '1-σ · lateral ' + fmtMm(pr.sigmaLateral) + ' · ' + (pr.sigmaDepth / state.Z * 100).toFixed(2) + ' % of Z') +
       tile('Ground sampling distance', (ev.gsd * 1000).toFixed(2), 'mm/px', 'disparity ' + ev.disparity.toFixed(0) + ' px · f = ' + ev.fpxWater.toFixed(0) + ' px in water (' + (ev.port.type === 'dome' ? '× 1, dome' : '× n, flat') + ')') +
@@ -890,7 +897,7 @@ details.theory li { margin-bottom: 4px; }
     var N = 90;
     for (var i = 0; i <= N; i++) {
       var z = zmin + (zmax - zmin) * i / N; xs.push(z);
-      var o = P.overlapAt(ev.fov.hWater / 2, state.baseline, state.convergence, z); fr.push(o.fraction); ovw.push(o.width); fw.push(o.single);
+      var o = P.overlapAt(ev.fov.hUsable / 2, state.baseline, state.convergence, z); fr.push(o.fraction); ovw.push(o.width); fw.push(o.single);
       var p = P.pointPrecision([0, 0, z], [ev.poses[0].center, ev.poses[1].center], state.sigmaPx, ev.fpxWater); sg.push(p.sigmaDepth * 1000);
       gsd.push(z / ev.fpxWater * 1000);
     }
@@ -1020,6 +1027,7 @@ details.theory li { margin-bottom: 4px; }
   bindPair('sal', 'salN', 'S', false);
   bindPair('vis', 'visN', 'visibility', false);
   bindPair('sig', 'sigN', 'sigmaPx', false);
+  bindPair('cap', 'capN', 'capDeg', true);
   $('water').addEventListener('change', function () { state.water = $('water').value; $('salField').hidden = state.water !== 'custom'; update(false); });
   $('mApply').addEventListener('click', function () {
     var v = parseFloat($('mSpeed').value) * parseFloat($('mInt').value);
@@ -1049,7 +1057,7 @@ details.theory li { margin-bottom: 4px; }
       camera: cam.name, mode: mode.label, image_px: [mode.w, mode.h], fov_air_deg: [mode.hfov, mode.vfov],
       baseline_m: state.baseline, convergence_deg: state.convergence, orientation: state.roll ? 'portrait' : 'landscape', pitch_deg: state.pitch,
       port: state.port === 'dome' ? { type: 'dome', radius_mm: state.domeR, wall_mm: state.domeT, glass_n: state.domeN, pupil_behind_centre_mm: state.domeOff } : { type: 'flat' },
-      working_distance_m: state.Z, water: { salinity_psu: salinity(), temperature_c: state.T, wavelength_nm: state.lambda, n: +ev.n.toFixed(4) }, visibility_m: state.visibility, sigma_px: state.sigmaPx,
+      working_distance_m: state.Z, water: { salinity_psu: salinity(), temperature_c: state.T, wavelength_nm: state.lambda, n: +ev.n.toFixed(4) }, visibility_m: state.visibility, sigma_px: state.sigmaPx, usable_off_axis_deg: state.capDeg,
       results: {
         fov_water_deg: [+ev.fov.hWater.toFixed(1), +ev.fov.vWater.toFixed(1), +ev.fov.dWater.toFixed(1)],
         frame_at_Z_m: [+ev.size.single.w.toFixed(3), +ev.size.single.h.toFixed(3)], frame_area_m2: +ev.areas.single.toFixed(3),
