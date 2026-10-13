@@ -1,0 +1,1079 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Underwater Stereo Rig Planner</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a three-column cockpit — parameters | 3-D viewport | readouts — that stacks on phones. */
+:root {
+  --bg: #e9f0f3;
+  --panel: #ffffff;
+  --panel-2: #f3f7f9;
+  --ink: #132028;
+  --ink-2: #4b5f6b;
+  --muted: #7d909b;
+  --line: #d5dfe5;
+  --accent: #0d7c8c;
+  --accent-ink: #ffffff;
+  --accent-soft: #d7eef1;
+  --camA: #eb6834;
+  --camB: #1baf7a;
+  --ov: #eda100;
+  --series: #2a78d6;
+  --good: #0ca30c;
+  --warn: #c98500;
+  --crit: #d03b3b;
+  --chart-surface: #fcfcfb;
+  --chart-grid: #e1e0d9;
+  --chart-axis: #c3c2b7;
+  --font-display: "Barlow Semi Condensed", "Arial Narrow", system-ui, sans-serif;
+  --font-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --radius: 6px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0c1418; --panel: #141f26; --panel-2: #1a2730; --ink: #e6eef2; --ink-2: #b2c1c9; --muted: #86999f;
+    --line: #26353d; --accent: #3fc0d2; --accent-ink: #052226; --accent-soft: #163a41;
+    --camA: #d95926; --camB: #199e70; --ov: #c98500; --series: #3987e5; --good: #0ca30c; --warn: #fab219; --crit: #e66767;
+    --chart-surface: #1a1a19; --chart-grid: #2c2c2a; --chart-axis: #383835;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0c1418; --panel: #141f26; --panel-2: #1a2730; --ink: #e6eef2; --ink-2: #b2c1c9; --muted: #86999f;
+  --line: #26353d; --accent: #3fc0d2; --accent-ink: #052226; --accent-soft: #163a41;
+  --camA: #d95926; --camB: #199e70; --ov: #c98500; --series: #3987e5; --good: #0ca30c; --warn: #fab219; --crit: #e66767;
+  --chart-surface: #1a1a19; --chart-grid: #2c2c2a; --chart-axis: #383835;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.45 var(--font-body); }
+[hidden] { display: none !important; }
+button, input, select { font: inherit; color: inherit; }
+h1, h2, h3 { font-family: var(--font-display); margin: 0; text-wrap: balance; }
+a { color: var(--accent); }
+
+.app { height: 100%; display: grid; grid-template-columns: 300px minmax(0, 1fr) 380px; grid-template-rows: auto minmax(0, 1fr); gap: 10px; padding-block: 10px; padding-inline: 12px; }
+.top { grid-column: 1 / -1; display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding-block: 2px; padding-inline: 4px; }
+.brand { display: flex; align-items: center; gap: 10px; }
+.brand .mark { width: 26px; height: 26px; border-radius: 50%; background: radial-gradient(circle at 35% 35%, var(--accent) 0 38%, transparent 40%), conic-gradient(from 200deg, var(--camA) 0 40%, var(--camB) 40% 80%, var(--ov) 80% 100%); flex: none; }
+.top h1 { font-size: 22px; font-weight: 700; letter-spacing: 0.01em; }
+.tagline { margin: 0; color: var(--ink-2); font-size: 13px; flex: 1 1 320px; min-width: 0; }
+.top-actions { display: flex; gap: 8px; }
+.btn { border: 1px solid var(--line); background: var(--panel); color: var(--ink); border-radius: var(--radius); padding-block: 6px; padding-inline: 11px; cursor: pointer; font-weight: 500; font-size: 13px; }
+.btn:hover { border-color: var(--accent); }
+.btn:focus-visible, input:focus-visible, select:focus-visible, button:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.btn.small { padding-block: 3px; padding-inline: 8px; font-size: 12px; }
+
+.controls, .metrics { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; overflow: auto; min-height: 0; }
+.controls { padding-block: 6px 16px; padding-inline: 14px; }
+.group { padding-block: 12px; border-bottom: 1px solid var(--line); }
+.group:last-child { border-bottom: 0; }
+.group h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink-2); margin-bottom: 8px; font-weight: 600; }
+.field { display: grid; gap: 4px; margin-bottom: 10px; }
+.field > label, .field > .lbl { font-size: 12.5px; color: var(--ink-2); display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.field .lbl b, .field > label b { font-weight: 500; color: var(--ink); }
+.pair { display: grid; grid-template-columns: minmax(0, 1fr) 72px 24px; gap: 8px; align-items: center; }
+.pair input[type="number"] { width: 100%; padding-block: 4px; padding-inline: 6px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel-2); font-family: var(--font-mono); font-size: 12.5px; }
+.pair .unit { color: var(--muted); font-size: 12px; }
+select, .txt { width: 100%; padding-block: 6px; padding-inline: 8px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel-2); }
+input[type="range"] { width: 100%; accent-color: var(--accent); margin: 0; }
+.seg { display: flex; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+.seg button { flex: 1; border: 0; background: var(--panel-2); padding-block: 6px; cursor: pointer; font-size: 12.5px; color: var(--ink-2); }
+.seg button + button { border-left: 1px solid var(--line); }
+.seg button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); font-weight: 600; }
+.hint { color: var(--muted); font-size: 12px; margin: 6px 0 0; }
+.check { display: flex; align-items: center; gap: 8px; font-size: 13px; margin-bottom: 6px; }
+details.helper { background: var(--panel-2); border-radius: var(--radius); padding-block: 6px; padding-inline: 10px; font-size: 12.5px; }
+details.helper summary { cursor: pointer; color: var(--ink-2); }
+details.helper .row { display: grid; grid-template-columns: 1fr 1fr auto; gap: 6px; margin-top: 8px; align-items: end; }
+details.helper label { display: grid; gap: 3px; color: var(--muted); font-size: 11.5px; }
+details.helper input { padding-block: 4px; padding-inline: 6px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel); font-family: var(--font-mono); width: 100%; }
+.readout { font-family: var(--font-mono); font-size: 12px; color: var(--ink-2); }
+
+.viewport { position: relative; min-width: 0; min-height: 0; border-radius: 10px; overflow: hidden; border: 1px solid var(--line); background: var(--bg); }
+.viewport canvas { display: block; width: 100%; height: 100%; touch-action: none; cursor: grab; }
+.viewport canvas:active { cursor: grabbing; }
+.hud { position: absolute; inset: 10px 10px auto 10px; display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; pointer-events: none; flex-wrap: wrap; }
+.hud > * { pointer-events: auto; }
+.legend { display: flex; gap: 10px; flex-wrap: wrap; background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-radius: var(--radius); padding-block: 5px; padding-inline: 9px; font-size: 12px; }
+.legend span { display: inline-flex; align-items: center; gap: 5px; }
+.legend i { width: 12px; height: 12px; border-radius: 2px; display: inline-block; }
+.views { display: flex; gap: 2px; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 2px; }
+.views button { border: 0; background: transparent; color: var(--ink-2); padding-block: 4px; padding-inline: 8px; border-radius: 4px; cursor: pointer; font-size: 12px; }
+.views button:hover { background: var(--panel-2); }
+.views button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); font-weight: 600; }
+.hud-foot { position: absolute; left: 10px; bottom: 8px; color: var(--muted); font-size: 11.5px; pointer-events: none; }
+.hud-foot b { color: var(--ink-2); font-weight: 500; }
+
+.metrics { padding-block: 10px 18px; padding-inline: 14px; display: grid; gap: 14px; align-content: start; }
+.tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.tile { background: var(--panel-2); border-radius: 8px; padding-block: 8px 9px; padding-inline: 11px; min-width: 0; }
+.tile .k { font-size: 11.5px; color: var(--ink-2); letter-spacing: 0.02em; }
+.tile .v { font-family: var(--font-display); font-size: 24px; font-weight: 600; line-height: 1.15; margin-top: 2px; color: var(--ink); }
+.tile .v small { font-size: 14px; font-weight: 500; color: var(--ink-2); margin-left: 2px; }
+.tile .s { font-size: 11.5px; color: var(--muted); margin-top: 2px; font-family: var(--font-mono); }
+.block h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink-2); margin-bottom: 8px; font-weight: 600; display: flex; justify-content: space-between; align-items: center; }
+dl.dist { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; font-size: 13px; }
+dl.dist dt { font-family: var(--font-mono); font-weight: 500; white-space: nowrap; font-variant-numeric: tabular-nums; }
+dl.dist dd { margin: 0; color: var(--ink-2); min-width: 0; }
+ul.advice { margin: 0; padding: 0; list-style: none; display: grid; gap: 6px; }
+ul.advice li { display: flex; gap: 8px; font-size: 12.8px; line-height: 1.4; }
+ul.advice li::before { content: ""; width: 8px; height: 8px; border-radius: 50%; margin-top: 5px; flex: none; background: var(--good); }
+ul.advice li.warn::before { background: var(--warn); }
+ul.advice li.crit::before { background: var(--crit); }
+ul.advice li.info::before { background: var(--muted); }
+.chart { min-width: 0; }
+.block .sub { margin: -4px 0 6px; font-size: 12px; color: var(--muted); font-family: var(--font-mono); }
+.chart svg { width: 100%; height: auto; display: block; background: var(--chart-surface); border-radius: 6px; }
+.chart .ax { stroke: var(--chart-axis); stroke-width: 1; }
+.chart .gr { stroke: var(--chart-grid); stroke-width: 1; }
+.chart text { font-family: var(--font-body); font-size: 10.5px; fill: var(--ink-2); font-variant-numeric: tabular-nums; }
+.chart text.t { fill: var(--muted); }
+.chart .ln { fill: none; stroke: var(--series); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.chart .ar { fill: var(--series); opacity: 0.1; }
+.chart .mk { stroke: var(--muted); stroke-width: 1; }
+.chart .mk-ov { stroke: var(--ov); }
+.chart .cur { stroke: var(--ink); stroke-width: 1; }
+.chart .dot { fill: var(--series); stroke: var(--chart-surface); stroke-width: 2; }
+.chart .xh { stroke: var(--ink-2); stroke-width: 1; }
+.chart .tip rect { fill: var(--panel); stroke: var(--line); }
+.chart .tip text { fill: var(--ink); font-weight: 600; font-size: 11px; }
+.chart .tip text.sub { fill: var(--ink-2); font-weight: 400; }
+table.tv { border-collapse: collapse; width: 100%; font-size: 12.5px; font-variant-numeric: tabular-nums; }
+table.tv th, table.tv td { text-align: right; padding-block: 4px; padding-inline: 6px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+table.tv th { color: var(--ink-2); font-weight: 500; font-size: 11.5px; }
+table.tv td:first-child, table.tv th:first-child { text-align: left; font-family: var(--font-mono); }
+table.tv tr.cur td { background: var(--accent-soft); }
+.tablewrap { overflow-x: auto; }
+details.theory { border-top: 1px solid var(--line); padding-top: 10px; }
+details.theory summary { cursor: pointer; font-family: var(--font-display); font-size: 15px; font-weight: 600; }
+details.theory .body { font-size: 13px; color: var(--ink-2); max-width: 62ch; }
+details.theory .body p { margin: 8px 0; }
+details.theory .body h3 { font-size: 14px; color: var(--ink); margin-top: 12px; }
+details.theory .eq { font-family: var(--font-mono); font-size: 12.5px; background: var(--panel-2); border-radius: var(--radius); padding-block: 6px; padding-inline: 10px; margin: 6px 0; overflow-x: auto; color: var(--ink); }
+details.theory ul, details.theory ol { padding-left: 18px; margin: 6px 0; }
+details.theory li { margin-bottom: 4px; }
+.toast { position: fixed; left: 50%; bottom: calc(18px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--ink); color: var(--bg); padding-block: 8px; padding-inline: 14px; border-radius: 20px; font-size: 13px; opacity: 0; transition: opacity .2s; pointer-events: none; }
+.toast.show { opacity: 1; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+
+@media (max-width: 1180px) {
+  .app { grid-template-columns: 280px minmax(0, 1fr); grid-template-rows: auto auto auto; height: auto; min-height: 100%; }
+  .controls { overflow: visible; }
+  .viewport { align-self: start; position: sticky; top: 10px; height: clamp(360px, 64vh, 680px); min-height: 0; }
+  .metrics { grid-column: 1 / -1; }
+  .tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (max-width: 760px) {
+  .app { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto auto auto; gap: 10px; }
+  .viewport { position: relative; top: auto; height: 68vw; min-height: 300px; max-height: 70vh; }
+  .controls { max-height: none; overflow: visible; }
+  .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .top h1 { font-size: 19px; }
+}
+@media (prefers-reduced-motion: reduce) { .toast { transition: none; } }
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <div class="brand"><span class="mark" aria-hidden="true"></span><h1>Underwater Stereo Rig Planner</h1></div>
+    <p class="tagline">Two flat-port action cameras under water: refraction-corrected field of view, stereo overlap and depth precision for any baseline, convergence angle and working distance.</p>
+    <div class="top-actions"><button class="btn" id="btnCopy" type="button">Copy settings &amp; results</button></div>
+  </header>
+
+  <aside class="controls" aria-label="Parameters">
+    <section class="group">
+      <h2>Camera</h2>
+      <div class="field"><label for="camera">Model</label><select id="camera"></select></div>
+      <div class="field"><label for="mode">Lens / recording mode</label><select id="mode"></select></div>
+      <div id="customFields" hidden>
+        <div class="field"><label for="cHfov">Horizontal FOV in air (°)</label><input class="txt" type="number" id="cHfov" min="10" max="178" step="0.5" value="90"></div>
+        <div class="field"><label for="cVfov">Vertical FOV in air (°)</label><input class="txt" type="number" id="cVfov" min="10" max="178" step="0.5" value="70"></div>
+        <div class="field"><label for="cW">Image width (px)</label><input class="txt" type="number" id="cW" min="100" max="20000" step="1" value="4000"></div>
+        <div class="field"><label for="cH">Image height (px)</label><input class="txt" type="number" id="cH" min="100" max="20000" step="1" value="3000"></div>
+        <div class="field"><label for="cProj">Projection</label><select id="cProj"><option value="rectilinear">Rectilinear (distortion-corrected)</option><option value="stereographic">Fisheye-type, stereographic</option><option value="equidistant">Fisheye-type, equidistant (r = f·θ)</option><option value="equisolid">Fisheye-type, equisolid (r = 2f·sin θ/2)</option></select></div>
+      </div>
+      <div class="field"><label for="port">Port in front of the lens</label><select id="port"><option value="flat">Flat port (lens cover or housing window)</option><option value="dome">Dome port</option></select></div>
+      <div id="domeFields" hidden>
+        <div class="field">
+          <label for="domeR"><span>Dome radius <b>R</b> (6-inch dome ≈ 76 mm)</span></label>
+          <div class="pair"><input type="range" id="domeR" min="25" max="130" step="1" value="76"><input type="number" id="domeRN" min="10" max="300" step="1" value="76"><span class="unit">mm</span></div>
+        </div>
+        <div class="field"><label for="domeMat">Dome material</label><select id="domeMat"><option value="1.49">Acrylic (n = 1.49)</option><option value="1.52">Mineral glass (n = 1.52)</option><option value="1.585">Polycarbonate (n = 1.585)</option></select></div>
+        <div class="field">
+          <label for="domeT"><span>Wall thickness</span></label>
+          <div class="pair"><input type="range" id="domeT" min="2" max="8" step="0.5" value="4"><input type="number" id="domeTN" min="1" max="15" step="0.5" value="4"><span class="unit">mm</span></div>
+        </div>
+        <div class="field">
+          <label for="domeOff"><span>Entrance pupil behind the dome centre</span></label>
+          <div class="pair"><input type="range" id="domeOff" min="0" max="40" step="1" value="0"><input type="number" id="domeOffN" min="-20" max="80" step="1" value="0"><span class="unit">mm</span></div>
+        </div>
+        <p class="hint">A centred dome keeps the in-air field of view, but it images the whole scene 3–4 R in front of its centre. Fixed-focus action cameras need a dome large enough for that virtual image to sit beyond their near-focus distance.</p>
+      </div>
+      <p class="hint" id="cameraNote"></p>
+      <p class="readout" id="modeReadout"></p>
+    </section>
+
+    <section class="group">
+      <h2>Rig</h2>
+      <div class="field"><label for="preset">Preset rigs from the literature</label><select id="preset"><option value="">— set your own —</option></select></div>
+      <div class="field">
+        <label for="baseline"><span>Baseline <b>b</b> (camera separation)</span></label>
+        <div class="pair"><input type="range" id="baseline" min="0.05" max="2" step="0.01" value="0.5"><input type="number" id="baselineN" min="0.01" max="5" step="0.01" value="0.5"><span class="unit">m</span></div>
+      </div>
+      <div class="field">
+        <label for="conv"><span>Convergence <b>θ</b> (total toe-in, both cameras)</span></label>
+        <div class="pair"><input type="range" id="conv" min="0" max="60" step="0.5" value="8"><input type="number" id="convN" min="0" max="90" step="0.5" value="8"><span class="unit">°</span></div>
+      </div>
+      <div class="field">
+        <span class="lbl">Sensor orientation</span>
+        <div class="seg" role="group" aria-label="Sensor orientation"><button type="button" data-roll="0" aria-pressed="true">Landscape</button><button type="button" data-roll="90" aria-pressed="false">Portrait</button></div>
+      </div>
+      <div class="field">
+        <span class="lbl">Mounting (rig pointing)</span>
+        <div class="seg" role="group" aria-label="Mounting"><button type="button" data-pitch="90" aria-pressed="true">Nadir (down)</button><button type="button" data-pitch="45" aria-pressed="false">Oblique 45°</button><button type="button" data-pitch="0" aria-pressed="false">Forward</button></div>
+      </div>
+      <details class="helper">
+        <summary>Single moving camera? Baseline = speed × interval</summary>
+        <div class="row">
+          <label>Speed (m/s)<input type="number" id="mSpeed" min="0.05" max="3" step="0.05" value="0.3"></label>
+          <label>Interval (s)<input type="number" id="mInt" min="0.1" max="30" step="0.1" value="1"></label>
+          <button class="btn small" type="button" id="mApply">Use</button>
+        </div>
+        <p class="hint">Consecutive frames of one camera form a stereo pair with the baseline equal to the distance swum between exposures; set convergence to 0.</p>
+      </details>
+    </section>
+
+    <section class="group">
+      <h2>Scene</h2>
+      <div class="field">
+        <label for="range"><span>Working distance <b>Z</b> (rig to subject plane)</span></label>
+        <div class="pair"><input type="range" id="range" min="0.3" max="15" step="0.05" value="2"><input type="number" id="rangeN" min="0.1" max="60" step="0.05" value="2"><span class="unit">m</span></div>
+      </div>
+      <div class="field"><label for="water">Water</label><select id="water"><option value="sea">Seawater (35 PSU)</option><option value="brackish">Brackish (15 PSU)</option><option value="fresh">Fresh water (0 PSU)</option><option value="custom">Custom salinity</option></select></div>
+      <div class="field" id="salField" hidden>
+        <label for="sal"><span>Salinity</span></label>
+        <div class="pair"><input type="range" id="sal" min="0" max="40" step="0.5" value="35"><input type="number" id="salN" min="0" max="45" step="0.5" value="35"><span class="unit">PSU</span></div>
+      </div>
+      <div class="field">
+        <label for="temp"><span>Temperature</span></label>
+        <div class="pair"><input type="range" id="temp" min="0" max="35" step="0.5" value="22"><input type="number" id="tempN" min="-2" max="40" step="0.5" value="22"><span class="unit">°C</span></div>
+      </div>
+      <div class="field">
+        <label for="lambda"><span>Wavelength (green ≈ 550 nm)</span></label>
+        <div class="pair"><input type="range" id="lambda" min="400" max="700" step="5" value="550"><input type="number" id="lambdaN" min="380" max="720" step="5" value="550"><span class="unit">nm</span></div>
+      </div>
+      <p class="readout" id="nReadout"></p>
+      <div class="field">
+        <label for="vis"><span>Horizontal visibility</span></label>
+        <div class="pair"><input type="range" id="vis" min="1" max="40" step="0.5" value="12"><input type="number" id="visN" min="0.5" max="60" step="0.5" value="12"><span class="unit">m</span></div>
+      </div>
+    </section>
+
+    <section class="group">
+      <h2>Image matching</h2>
+      <div class="field">
+        <label for="sig"><span>Tie-point precision <b>σ<sub>px</sub></b> (1-σ, per image)</span></label>
+        <div class="pair"><input type="range" id="sig" min="0.1" max="2" step="0.05" value="0.5"><input type="number" id="sigN" min="0.02" max="5" step="0.05" value="0.5"><span class="unit">px</span></div>
+      </div>
+      <p class="hint">0.3–0.5 px is typical for SIFT-type tie points after bundle adjustment under water; use 1 px for conservative planning.</p>
+    </section>
+
+    <section class="group">
+      <h2>Display</h2>
+      <div class="field"><label for="refObj">Reference object on the subject plane</label><select id="refObj"></select></div>
+      <label class="check"><input type="checkbox" id="showAir" checked> Ghost in-air frustum (what refraction removes)</label>
+      <label class="check"><input type="checkbox" id="showGrid" checked> 1 m grid on the subject plane</label>
+      <label class="check"><input type="checkbox" id="showLabels" checked> Dimension labels</label>
+    </section>
+  </aside>
+
+  <main class="viewport" aria-label="3-D model">
+    <canvas id="gl" aria-label="Three-dimensional view of the stereo rig, its underwater fields of view and their overlap on the subject plane"></canvas>
+    <div class="hud">
+      <div class="legend"><span><i style="background:var(--camA)"></i>Camera A</span><span><i style="background:var(--camB)"></i>Camera B</span><span><i style="background:var(--ov)"></i>Stereo overlap</span><span><i style="background:transparent;border:1px dashed var(--ink-2)"></i>In-air frustum</span></div>
+      <div class="views" role="group" aria-label="View"><button type="button" data-view="orbit" aria-pressed="true">Orbit</button><button type="button" data-view="plan" aria-pressed="false">Plan</button><button type="button" data-view="side" aria-pressed="false">Side</button><button type="button" data-view="front" aria-pressed="false">Along axis</button><button type="button" data-view="fit" aria-pressed="false">Fit</button></div>
+    </div>
+    <div class="hud-foot"><b>Drag</b> rotate · <b>Wheel / pinch</b> zoom · <b>Shift-drag</b> pan</div>
+  </main>
+
+  <section class="metrics" aria-label="Results">
+    <div class="tiles" id="tiles"></div>
+    <div class="block"><h2>Flat port vs dome port at these settings</h2><div class="tablewrap" id="portCompare"></div></div>
+    <div class="block"><h2>Key distances along the rig axis</h2><dl class="dist" id="distances"></dl></div>
+    <div class="block"><h2>Advisories</h2><ul class="advice" id="advice"></ul></div>
+    <div class="block chart"><h2>Stereo overlap vs working distance</h2><p class="sub" id="ovSub"></p><div id="chartOverlap"></div></div>
+    <div class="block chart"><h2>Depth precision σ<sub>Z</sub> vs working distance</h2><p class="sub" id="sgSub"></p><div id="chartSigma"></div></div>
+    <div class="block"><h2>Values by distance <button class="btn small" type="button" id="btnTable" aria-expanded="false">Show table</button></h2><div class="tablewrap" id="table" hidden></div></div>
+
+    <details class="theory">
+      <summary>How the numbers are computed</summary>
+      <div class="body">
+        <h3>1. Flat-port refraction (Snell's law)</h3>
+        <p>Both cameras sit behind a flat window (their own lens cover, or the flat port of the dive housing). A ray at angle θ<sub>w</sub> from the optical axis in water refracts to θ<sub>a</sub> in air, with n<sub>w</sub> sin θ<sub>w</sub> = sin θ<sub>a</sub>. The lens can only accept rays up to its in-air half angle, so the in-water field of view is</p>
+        <div class="eq">FOV<sub>water</sub> = 2 · asin( sin(FOV<sub>air</sub> / 2) / n<sub>w</sub> )</div>
+        <p>Since sin θ<sub>a</sub> ≤ 1, no flat-port camera can see more than 2·asin(1/n<sub>w</sub>) ≈ 97° under water, whatever its lens. The glass thickness only shifts rays sideways by a few millimetres; it does not change the angles. Each boundary ray of the image is refracted individually, which is why the in-water frustum of a wide lens has rounded corners.</p>
+        <h3>2. Scale and focus</h3>
+        <p>Near the axis the port multiplies the focal length by n<sub>w</sub> (≈1.34), so the ground sampling distance at the centre of the frame is GSD = Z / (n<sub>w</sub> f<sub>px</sub>), where f<sub>px</sub> is the in-air centre focal length in pixels derived from the mode's field angles and projection model. Objects at distance Z appear at Z / n<sub>w</sub>, so a lens that focuses down to d in air focuses down to n<sub>w</sub>·d in water. Away from the axis the port adds pincushion-type distortion and lateral colour, which is why cameras must be calibrated in water, at the working distance, not in air.</p>
+        <h3>2b. The dome-port alternative</h3>
+        <p>A dome port whose centre of curvature sits on the entrance pupil passes every chief ray at normal incidence, so the in-air field of view, focal length and distortion are unchanged under water and there is no colour fringing from the port. The price is focus: the water–glass–air shell acts as a strong negative lens. Treating it as two spherical surfaces (outer radius R, inner radius R − t, glass index n<sub>g</sub>), the virtual image of an object at distance O from the dome centre lies at</p>
+        <div class="eq">n<sub>w</sub>/(O − R) + n<sub>g</sub>/s₁ = (n<sub>g</sub> − n<sub>w</sub>)/R,    n<sub>g</sub>/s₂ + 1/s₃ = (1 − n<sub>g</sub>)/(R − t)   with s₂ = −(s₁ − t)</div>
+        <p>For a thin shell this gives roughly 3 R from the glass (4 R from the centre) for an object at infinity, and closer still for nearer objects: the whole scene is compressed into a thin curved layer just outside the dome. A fixed-focus action camera with a 30–35 cm near focus therefore needs a dome of about 80–90 mm radius (a 6-inch dome is marginal, a 4-inch dome is too small) or a close-up lens, and at f/2.5–2.8 the curved virtual image leaves the frame corners soft. When the pupil is not at the centre of curvature the model traces each ray through both spherical surfaces exactly, which shows the mild distortion and field change that results.</p>
+        <h3>3. Where the two fields overlap</h3>
+        <p>With in-water half angle h in the plane of the baseline, baseline b and total convergence θ, each camera's footprint on a plane at distance Z spans Z·tan(h ± θ/2) either side of its own position. From this:</p>
+        <div class="eq">Z<sub>near</sub> = b / (2 tan(h + θ/2))   — overlap begins<br>Z<sub>full</sub> = b / (tan(h + θ/2) − tan(h − θ/2))   — the two footprints coincide (100 %)<br>Z<sub>cross</sub> = b / (2 tan(θ/2))   — optical axes cross<br>Z<sub>far</sub> = b / (2 tan(θ/2 − h))   — overlap ends (only when θ/2 &gt; h)</div>
+        <p>The 3-D view intersects the full refracted frustums with the subject plane and clips the two polygons against each other, so the area and percentage shown in the tiles include the keystone effect of toe-in; the chart uses the width along the centreline, which is what the formulas above describe.</p>
+        <h3>4. Depth precision</h3>
+        <p>A point seen from two cameras whose rays meet at angle γ, each ray carrying an angular uncertainty σ<sub>α</sub> = σ<sub>px</sub> / (n<sub>w</sub> f<sub>px</sub>), is located with</p>
+        <div class="eq">σ<sub>depth</sub> = R · σ<sub>α</sub> / (√2 · sin(γ/2))      σ<sub>lateral</sub> = R · σ<sub>α</sub> / (√2 · cos(γ/2))<br>γ = 2 · atan( b / 2Z )  for a point on the rig axis,  R ≈ Z</div>
+        <p>For parallel cameras and small γ this is the textbook σ<sub>Z</sub> = Z² σ<sub>d</sub> / (f b) with disparity precision σ<sub>d</sub> = √2 σ<sub>px</sub>. Depth precision degrades with Z² and improves linearly with baseline and focal length. Convergence does not change γ for a given point; it only changes which points both cameras see. Values are 1-σ for a single pair; bundle adjustment over many images and tie points does better than this, but the trends hold.</p>
+        <h3>5. Visibility</h3>
+        <p>Horizontal visibility V relates to the beam attenuation coefficient c by V ≈ 3.9 / c (Duntley). Image contrast falls as e<sup>−cZ</sup>; below ~25–30 % of the contrast at zero range, texture matching becomes unreliable, which is why benthic photogrammetry is usually flown at 1–3 m even in clear water.</p>
+        <h3>Assumptions</h3>
+        <ul>
+          <li>Thin flat port with the entrance pupil close to the window; the few millimetres between pupil and glass are neglected.</li>
+          <li>Both cameras identical, aligned in the plane of the baseline, with the same roll.</li>
+          <li>Manufacturer in-air field angles; fisheye-type modes are modelled with a stereographic projection for the frustum corners and centre focal length.</li>
+          <li>Quan &amp; Fry (1995) refractive index; pressure neglected (+0.0014 at 100 m).</li>
+        </ul>
+        <h3>Where the design rules come from</h3>
+        <ul>
+          <li>Flat-port limit, pincushion distortion and the "objects appear closer" effect: Menna, Nocerino, Fassi &amp; Remondino 2016, <a href="https://doi.org/10.3390/s16010048">Sensors 16:48</a>; flat vs dome ports: Menna, Nocerino &amp; Remondino 2017, <a href="https://doi.org/10.5194/isprs-archives-XLII-2-W3-481-2017">ISPRS Archives XLII-2/W3</a>.</li>
+          <li>In-water principal distance ≈ 1.34 × in-air for GoPro, calibrate in water, 0.1–0.3 px image residuals: Shortis 2015, <a href="https://doi.org/10.3390/s151229831">Sensors 15:30810</a>. Refractive geometry: Treibitz et al. 2012, <a href="https://doi.org/10.1109/TPAMI.2011.105">IEEE TPAMI 34:51</a>; Pinax model: Łuczyński et al. 2017, <a href="https://doi.org/10.1016/j.oceaneng.2017.01.029">Ocean Eng. 133:9</a>.</li>
+          <li>Refractive index of seawater: Quan &amp; Fry 1995, <a href="https://doi.org/10.1364/AO.34.003477">Appl. Opt. 34:3477</a>.</li>
+          <li>Depth precision σ<sub>Z</sub> = Z² σ / (c B), 60–80 % overlap, convergent geometry vs matching: Dall'Asta et al. 2015, <a href="https://doi.org/10.3390/s150407985">Sensors 15:7985</a>; Luhmann et al., Close-Range Photogrammetry and 3D Imaging; Wenzel et al. 2013, <a href="https://doi.org/10.5194/isprsarchives-XL-5-W1-251-2013">ISPRS Archives XL-5/W1</a> (large intersection angles hurt matching; 3–7° gives noisy surfaces); Lowe 2004 (SIFT reliable within ≈30° of viewpoint change).</li>
+          <li>Stereo-video rigs: Shortis &amp; Harvey 1998 (1.4 m base, 8.5° convergence, 5 m range: 3 mm lateral / 22 mm depth a-priori precision); stereo-BRUV standard of two GoPros 700 mm apart converged 7°: Langlois et al. 2020, <a href="https://doi.org/10.1111/2041-210X.13470">Methods Ecol. Evol. 11:1401</a>; base 150 / 400 / 800 mm compared, 800 mm best, 150 mm poor beyond 6 m: Boutros, Shortis &amp; Harvey 2015, <a href="https://doi.org/10.1002/lom3.10020">L&amp;O Methods 13:224</a>; review: Shortis, Harvey &amp; Abdo 2009, Oceanogr. Mar. Biol. Annu. Rev. 47:257.</li>
+          <li>Reef SfM practice: Burns et al. 2015, <a href="https://doi.org/10.7717/peerj.1077">PeerJ 3:e1077</a> (≈3 m altitude, 70–80 % overlap); Bayley &amp; Mogg 2020, <a href="https://doi.org/10.1111/2041-210X.13476">Methods Ecol. Evol.</a> (1–2 m, 50–75 % overlap); Raoult et al. 2016, <a href="https://doi.org/10.7717/peerj.1960">PeerJ 4:e1960</a> (GoPro stills at 2 Hz, &gt; 60 % overlap); Young et al. 2017, <a href="https://doi.org/10.1371/journal.pone.0175341">PLoS ONE 12:e0175341</a> (GoPro 0.5–1 m altitude, 60–80 % overlap).</li>
+          <li>GoPro accuracy under water: Nocerino et al. 2019, <a href="https://doi.org/10.5194/isprs-archives-XLII-2-W10-143-2019">ISPRS Archives XLII-2/W10</a> (RMSE ≈ 3.6 mm at 2 m, GSD 1.2 mm); parallel GoPro 11 pair with a 249 mm baseline that is the same in air and in the pool: Del Pizzo et al. 2024, IEEE MetroSea.</li>
+        </ul>
+      </div>
+    </details>
+    <details class="theory" id="sourcesBox">
+      <summary>Camera data and sources</summary>
+      <div class="body" id="sourcesBody"></div>
+    </details>
+  </section>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<textarea class="sr" id="clip" aria-hidden="true" tabindex="-1"></textarea>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="physics.js"></script>
+<script src="cameras.js"></script>
+<script>
+(function () {
+  'use strict';
+  var P = window.UWStereo, CAMS = window.UWCameras;
+  var $ = function (id) { return document.getElementById(id); };
+
+  /* ---------------- state ---------------- */
+  var state = {
+    cameraId: CAMS[0].id, modeId: CAMS[0].modes[0].id,
+    custom: { hfov: 90, vfov: 70, w: 4000, h: 3000, proj: 'rectilinear' },
+    baseline: 0.5, convergence: 8, roll: 0, pitch: 90,
+    Z: 2, water: 'sea', S: 35, T: 22, lambda: 550, visibility: 12,
+    sigmaPx: 0.5,
+    refObject: 'diver',
+    port: 'flat', domeR: 76, domeT: 4, domeN: 1.49, domeOff: 0,
+    show: { air: true, grid: true, labels: true }
+  };
+  var SAL = { sea: 35, brackish: 15, fresh: 0 };
+  var PRESETS = [
+    { id: 'bruv', label: 'Stereo-BRUV / stereo-DOV standard: 0.70 m, 7°, 3 m forward (Langlois et al. 2020)', baseline: 0.70, convergence: 7, Z: 3, pitch: 0 },
+    { id: 'dov-compact', label: 'Compact stereo-video: 0.50 m, 5°, 2.5 m forward', baseline: 0.50, convergence: 5, Z: 2.5, pitch: 0 },
+    { id: 'shortis98', label: 'Shortis & Harvey 1998 rig: 1.40 m, 8.5°, 5 m forward', baseline: 1.40, convergence: 8.5, Z: 5, pitch: 0 },
+    { id: 'boutros800', label: 'Boutros et al. 2015 best case: 0.80 m, 8°, 4 m forward', baseline: 0.80, convergence: 8, Z: 4, pitch: 0 },
+    { id: 'gopro-pair', label: 'Parallel GoPro pair for benthic SfM: 0.25 m, 0°, 1.5 m nadir (Del Pizzo et al. 2024)', baseline: 0.25, convergence: 0, Z: 1.5, pitch: 90 },
+    { id: 'colony', label: 'Close-range coral colony: 0.15 m, 10°, 0.8 m nadir', baseline: 0.15, convergence: 10, Z: 0.8, pitch: 90 },
+    { id: 'swim', label: 'Single camera swum at 0.3 m/s, 1 frame/s: 0.30 m, 0°, 1.5 m nadir', baseline: 0.30, convergence: 0, Z: 1.5, pitch: 90 },
+    { id: 'reef-3m', label: 'Reef mosaic at 3 m altitude, 80 % forward overlap pair (Burns et al. 2015 style)', baseline: 0.60, convergence: 0, Z: 3, pitch: 90 }
+  ];
+
+  function currentCamera() { for (var i = 0; i < CAMS.length; i++) if (CAMS[i].id === state.cameraId) return CAMS[i]; return CAMS[0]; }
+  function currentMode() {
+    var cam = currentCamera();
+    if (cam.id === 'custom') { var m = {}; for (var k in cam.modes[0]) m[k] = cam.modes[0][k]; for (var k2 in state.custom) m[k2] = state.custom[k2]; return m; }
+    for (var i = 0; i < cam.modes.length; i++) if (cam.modes[i].id === state.modeId) return cam.modes[i];
+    return cam.modes[0];
+  }
+  function salinity() { return state.water === 'custom' ? state.S : SAL[state.water]; }
+  function portCfg(type) {
+    if ((type || state.port) !== 'dome') return { type: 'flat' };
+    var R = Math.max(0.01, state.domeR / 1000);
+    return { type: 'dome', R: R, t: Math.min(state.domeT / 1000, R * 0.5), ng: state.domeN, offset: state.domeOff / 1000 };
+  }
+  function compute(Zover, portType) {
+    return P.evaluate({
+      mode: currentMode(),
+      rig: { baseline: state.baseline, convergence: state.convergence, roll: state.roll },
+      water: { S: salinity(), T: state.T, lambda: state.lambda },
+      Z: Zover != null ? Zover : state.Z, sigmaPx: state.sigmaPx, visibility: state.visibility,
+      port: portCfg(portType), nearFocusAir: currentCamera().nearFocusAir
+    });
+  }
+
+  /* ---------------- formatting ---------------- */
+  function fmtLen(m, digits) {
+    if (!isFinite(m)) return '∞';
+    var a = Math.abs(m);
+    if (a < 0.01) return (m * 1000).toFixed(digits != null ? digits : 2) + ' mm';
+    if (a < 1) return (m * 100).toFixed(digits != null ? digits : 1) + ' cm';
+    return m.toFixed(digits != null ? digits : 2) + ' m';
+  }
+  function fmtMm(m) { if (!isFinite(m)) return '∞'; var mm = m * 1000; return mm < 1 ? mm.toFixed(2) + ' mm' : mm < 10 ? mm.toFixed(1) + ' mm' : mm < 1000 ? mm.toFixed(0) + ' mm' : (mm / 1000).toFixed(2) + ' m'; }
+  function deg(x, d) { return x.toFixed(d != null ? d : 1) + '°'; }
+  function pct(x) { return (x * 100).toFixed(0) + ' %'; }
+
+  /* ---------------- three.js scene (clean, theme-following) ---------------- */
+  var canvas = $('gl');
+  var renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  renderer.outputEncoding = THREE.sRGBEncoding;
+  var scene = new THREE.Scene();
+  var cam3 = new THREE.PerspectiveCamera(42, 1, 0.02, 400);
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x8e9aa3, 1.0));
+  var keyLight = new THREE.DirectionalLight(0xffffff, 0.6); keyLight.position.set(3, 6, 4); scene.add(keyLight);
+  var fillLight = new THREE.DirectionalLight(0xffffff, 0.25); fillLight.position.set(-4, -2, -3); scene.add(fillLight);
+
+  // page theme tokens drive every colour in the scene
+  var TH = {};
+  function cssVar(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+  function hexToRgba(hex, a) { var h = hex.replace('#', ''); if (h.length === 3) h = h.split('').map(function (c) { return c + c; }).join(''); var n = parseInt(h, 16); return 'rgba(' + ((n >> 16) & 255) + ',' + ((n >> 8) & 255) + ',' + (n & 255) + ',' + a + ')'; }
+  function readTheme() {
+    ['bg', 'panel', 'ink', 'ink-2', 'muted', 'line', 'camA', 'camB', 'ov', 'crit'].forEach(function (k) { TH[k] = cssVar('--' + k) || '#888888'; });
+    TH.panel2 = cssVar('--panel-2') || TH.panel;
+    var c = new THREE.Color(TH.bg); TH.dark = (0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b) < 0.4;
+    scene.background = new THREE.Color(TH.bg);
+  }
+  readTheme();
+
+  var rig = new THREE.Group(); scene.add(rig);   // rig frame: x along baseline, z toward subject, y sensor-up
+  var dyn = new THREE.Group(); rig.add(dyn);     // rebuilt on every update
+  var labels = [];                                // sprites kept at constant screen size
+
+  function disposeGroup(g) {
+    for (var i = g.children.length - 1; i >= 0; i--) {
+      var c = g.children[i];
+      if (c.children && c.children.length) disposeGroup(c);
+      if (c.geometry) c.geometry.dispose();
+      if (c.material && c.material.map) c.material.map.dispose();
+      if (c.material && (c.isSprite || c.material.map)) c.material.dispose();
+      g.remove(c);
+    }
+  }
+
+  function makeLabel(text, color, bg) {
+    var c = document.createElement('canvas'), g = c.getContext('2d');
+    var font = '600 30px "IBM Plex Sans", system-ui, sans-serif';
+    g.font = font; var w = Math.ceil(g.measureText(text).width) + 30, h = 48;
+    c.width = w; c.height = h; g = c.getContext('2d'); g.font = font;
+    g.fillStyle = bg || hexToRgba(TH.panel, 0.92);
+    g.beginPath(); g.moveTo(10, 0); g.lineTo(w - 10, 0); g.quadraticCurveTo(w, 0, w, 10); g.lineTo(w, h - 10); g.quadraticCurveTo(w, h, w - 10, h); g.lineTo(10, h); g.quadraticCurveTo(0, h, 0, h - 10); g.lineTo(0, 10); g.quadraticCurveTo(0, 0, 10, 0); g.closePath(); g.fill();
+    g.strokeStyle = hexToRgba(TH.ink, 0.25); g.lineWidth = 2; g.stroke();
+    g.fillStyle = color || TH.ink; g.textBaseline = 'middle'; g.fillText(text, 15, h / 2 + 1);
+    var tex = new THREE.CanvasTexture(c); tex.encoding = THREE.sRGBEncoding; tex.minFilter = THREE.LinearFilter;
+    var sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false, depthWrite: false }));
+    sp.userData.aspect = w / h; sp.userData.px = 24; sp.renderOrder = 10;
+    return sp;
+  }
+  function addLabelTo(parent, text, pos, color, bg) {
+    if (!state.show.labels) return;
+    var sp = makeLabel(text, color, bg); sp.position.set(pos[0], pos[1], pos[2]); parent.add(sp); labels.push(sp);
+  }
+  function addLabel(text, pos, color, bg) { addLabelTo(dyn, text, pos, color, bg); }
+
+  function lineFromPoints(pts, color, opacity, dashed) {
+    var g = new THREE.BufferGeometry().setFromPoints(pts.map(function (p) { return new THREE.Vector3(p[0], p[1], p[2]); }));
+    var m = dashed ? new THREE.LineDashedMaterial({ color: color, transparent: true, opacity: opacity, dashSize: 0.08, gapSize: 0.05, depthWrite: false })
+                   : new THREE.LineBasicMaterial({ color: color, transparent: true, opacity: opacity, depthWrite: false });
+    var l = new THREE.Line(g, m); if (dashed) l.computeLineDistances(); l.renderOrder = 4; return l;
+  }
+  function loopFromPoints(pts, z, color, opacity, dashed) {
+    var p3 = pts.map(function (p) { return [p[0], p[1], z]; }); p3.push(p3[0]); return lineFromPoints(p3, color, opacity, dashed);
+  }
+  function fanMesh(apex, poly, z, color, opacity, order) {
+    var arr = [];
+    for (var i = 0; i < poly.length; i++) { var p = poly[i], q = poly[(i + 1) % poly.length]; arr.push(apex[0], apex[1], apex[2], p[0], p[1], z, q[0], q[1], z); }
+    var g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(arr), 3)); g.computeVertexNormals();
+    var m = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ color: color, transparent: true, opacity: opacity, side: THREE.DoubleSide, depthWrite: false }));
+    m.renderOrder = order || 3; return m;
+  }
+  function polyMesh(poly, z, color, opacity, order) {
+    if (poly.length < 3) return null;
+    var sh = new THREE.Shape(poly.map(function (p) { return new THREE.Vector2(p[0], p[1]); }));
+    var m = new THREE.Mesh(new THREE.ShapeGeometry(sh), new THREE.MeshBasicMaterial({ color: color, transparent: true, opacity: opacity, side: THREE.DoubleSide, depthWrite: false }));
+    m.position.z = z; m.renderOrder = order || 1; return m;
+  }
+  function checkerTexture(nx, ny) {
+    var c = document.createElement('canvas'); c.width = nx * 16; c.height = ny * 16; var g = c.getContext('2d');
+    for (var y = 0; y < ny; y++) for (var x = 0; x < nx; x++) { g.fillStyle = (x + y) % 2 ? '#1c1c1c' : '#f2f2f2'; g.fillRect(x * 16, y * 16, 16, 16); }
+    var t = new THREE.CanvasTexture(c); t.encoding = THREE.sRGBEncoding; t.magFilter = THREE.NearestFilter; return t;
+  }
+
+  function buildCameraBody(cam, pose, color, port) {
+    var g = new THREE.Group();
+    var b = cam.body;
+    var matWin = new THREE.MeshStandardMaterial({ color: 0x9fd3ea, transparent: true, opacity: 0.3, roughness: 0.1, metalness: 0.1, side: THREE.DoubleSide, depthWrite: false });
+    if (port && port.type === 'dome') {
+      var dome = new THREE.Mesh(new THREE.SphereGeometry(port.R, 40, 20, 0, Math.PI * 2, 0, Math.PI / 2), matWin);
+      dome.rotation.x = Math.PI / 2; dome.position.z = port.offset; dome.renderOrder = 5; g.add(dome);
+      var rim = new THREE.Mesh(new THREE.TorusGeometry(port.R, 0.003, 8, 48), new THREE.MeshStandardMaterial({ color: 0x6a7680, roughness: 0.5, metalness: 0.5 }));
+      rim.position.z = port.offset; g.add(rim);
+    } else {
+      var win = new THREE.Mesh(new THREE.PlaneGeometry(b.h * 0.7, b.h * 0.7), matWin);
+      win.position.z = b.d / 2 + 0.017; win.renderOrder = 5; g.add(win);
+    }
+    var matBody = new THREE.MeshStandardMaterial({ color: TH.dark ? 0x56606a : 0x2d3237, roughness: 0.55, metalness: 0.25 });
+    var matLens = new THREE.MeshStandardMaterial({ color: 0x101a24, roughness: 0.2, metalness: 0.6 });
+    var body = new THREE.Mesh(new THREE.BoxGeometry(b.w, b.h, b.d), matBody); g.add(body);
+    var lensR = Math.min(b.h, b.w) * 0.22;
+    var ring = new THREE.Mesh(new THREE.CylinderGeometry(lensR * 1.25, lensR * 1.25, 0.006, 32), new THREE.MeshStandardMaterial({ color: color, roughness: 0.5 }));
+    ring.rotation.x = Math.PI / 2; ring.position.z = b.d / 2 + 0.003; g.add(ring);
+    var lens = new THREE.Mesh(new THREE.CylinderGeometry(lensR, lensR, 0.012, 32), matLens);
+    lens.rotation.x = Math.PI / 2; lens.position.z = b.d / 2 + 0.008; g.add(lens);
+    var glass = new THREE.Mesh(new THREE.CircleGeometry(lensR * 0.8, 32), new THREE.MeshStandardMaterial({ color: 0x7fc0dc, roughness: 0.05, metalness: 0.8, transparent: true, opacity: 0.85 }));
+    glass.position.z = b.d / 2 + 0.0145; g.add(glass);
+    g.position.set(pose.center[0], pose.center[1], pose.center[2]);
+    g.rotation.set(0, pose.yaw * P.DEG, pose.roll * P.DEG);
+    return g;
+  }
+
+  /* Reference objects of known size, built in a local frame whose XY is the
+     subject plane and whose +z points out of the plane toward the cameras. */
+  var REF_OBJECTS = [
+    ['none', 'None'], ['diver', 'Diver, 1.8 m'], ['quadrat1', 'Quadrat 1 × 1 m'], ['quadrat05', 'Quadrat 0.5 × 0.5 m'],
+    ['tape2', 'Transect tape, 2 m'], ['scalebar', 'Scale bar, 1 m'], ['coral', 'Coral colony, Ø 0.5 m'], ['fish', 'Fish, 30 cm'],
+    ['cube', 'Calibration cube, 25 cm'], ['board', 'A3 target board, 42 × 30 cm']
+  ];
+  function refObjectGroup(id, Z) {
+    var g = new THREE.Group(), lbl = null;
+    var mInk = new THREE.MeshStandardMaterial({ color: new THREE.Color(TH.ink), roughness: 0.8 });
+    function box(w, h, d, x, y, z, mat) { var m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat || mInk); m.position.set(x, y, z); g.add(m); return m; }
+    function frame(w, h, t) { box(w + t, t, t * 0.6, 0, h / 2, t * 0.3); box(w + t, t, t * 0.6, 0, -h / 2, t * 0.3); box(t, h + t, t * 0.6, w / 2, 0, t * 0.3); box(t, h + t, t * 0.6, -w / 2, 0, t * 0.3); }
+    switch (id) {
+      case 'scalebar': box(1, 0.03, 0.01, 0, 0, 0.005); box(0.01, 0.12, 0.01, -0.5, 0, 0.005); box(0.01, 0.12, 0.01, 0.5, 0, 0.005); lbl = ['scale bar · 1 m', 0, 0.14, 0.02]; break;
+      case 'quadrat1': frame(1, 1, 0.025); lbl = ['quadrat · 1 × 1 m', 0, 0.6, 0.02]; break;
+      case 'quadrat05': frame(0.5, 0.5, 0.02); lbl = ['quadrat · 0.5 × 0.5 m', 0, 0.34, 0.02]; break;
+      case 'tape2': {
+        var mY = new THREE.MeshStandardMaterial({ color: 0xe8c547, roughness: 0.8 }), mK = new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.8 });
+        for (var i = 0; i < 20; i++) box(0.1, 0.03, 0.004, -0.95 + i * 0.1, 0, 0.002, i % 2 ? mK : mY);
+        lbl = ['transect tape · 2 m, 10 cm bands', 0, 0.1, 0.02]; break; }
+      case 'coral': {
+        var dome = new THREE.Mesh(new THREE.SphereGeometry(0.25, 28, 14, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshStandardMaterial({ color: 0xc98a7d, roughness: 0.9, flatShading: true }));
+        dome.rotation.x = Math.PI / 2; g.add(dome); lbl = ['coral colony · Ø 0.5 m, 25 cm tall', 0, 0.34, 0.12]; break; }
+      case 'fish': {
+        var fm = new THREE.MeshStandardMaterial({ color: 0x6d8fa3, roughness: 0.6 });
+        var body = new THREE.Mesh(new THREE.SphereGeometry(0.12, 24, 12), fm); body.scale.set(1, 0.4, 0.3); body.position.z = 0.04; g.add(body);
+        var tail = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.08, 3), fm); tail.rotation.z = Math.PI / 2; tail.position.set(-0.13, 0, 0.04); tail.scale.set(1, 1, 0.3); g.add(tail);
+        lbl = ['fish · 30 cm', 0, 0.1, 0.08]; break; }
+      case 'cube': {
+        var c = box(0.25, 0.25, 0.25, 0, 0, 0.125, new THREE.MeshStandardMaterial({ color: 0xd9d4c5, roughness: 0.7 }));
+        c.add(new THREE.LineSegments(new THREE.EdgesGeometry(c.geometry), new THREE.LineBasicMaterial({ color: 0x222222 })));
+        lbl = ['calibration cube · 25 cm', 0, 0.2, 0.3]; break; }
+      case 'board': {
+        var bd = new THREE.Mesh(new THREE.PlaneGeometry(0.42, 0.297), new THREE.MeshStandardMaterial({ map: checkerTexture(8, 6), roughness: 0.9 }));
+        bd.position.z = 0.004; g.add(bd); lbl = ['A3 target board · 42 × 30 cm', 0, 0.2, 0.02]; break; }
+      case 'diver': {
+        var suit = new THREE.MeshStandardMaterial({ color: 0x2f3e4a, roughness: 0.8 }), skin = new THREE.MeshStandardMaterial({ color: 0xd8b49a, roughness: 0.8 });
+        var fin = new THREE.MeshStandardMaterial({ color: 0xd9b23a, roughness: 0.8 }), tank = new THREE.MeshStandardMaterial({ color: 0x9fb3c0, roughness: 0.4, metalness: 0.5 });
+        box(0.60, 0.36, 0.20, 0.10, 0, 0.10, suit);
+        var head = new THREE.Mesh(new THREE.SphereGeometry(0.11, 20, 12), skin); head.position.set(0.52, 0, 0.11); g.add(head);
+        box(0.55, 0.10, 0.10, -0.47, 0.09, 0.07, suit); box(0.55, 0.10, 0.10, -0.47, -0.09, 0.07, suit);
+        box(0.40, 0.14, 0.02, -0.94, 0.11, 0.07, fin); box(0.40, 0.14, 0.02, -0.94, -0.11, 0.07, fin);
+        box(0.50, 0.08, 0.08, 0.28, 0.24, 0.08, suit); box(0.50, 0.08, 0.08, 0.28, -0.24, 0.08, suit);
+        var t = new THREE.Mesh(new THREE.CylinderGeometry(0.085, 0.085, 0.55, 16), tank); t.rotation.z = Math.PI / 2; t.position.set(0.05, 0, 0.27); g.add(t);
+        lbl = ['diver · 1.8 m head to fins', 0, 0.42, 0.35]; break; }
+      default: return null;
+    }
+    if (lbl) addLabelTo(g, lbl[0], [lbl[1], lbl[2], lbl[3]]);
+    g.rotation.y = Math.PI; g.position.z = Z;   // local +z -> rig -z (toward the cameras)
+    return g;
+  }
+
+  function rebuildScene(ev) {
+    disposeGroup(dyn); labels.length = 0;
+    var cam = currentCamera(), Z = state.Z, b = state.baseline;
+    var cA = new THREE.Color(TH.camA), cB = new THREE.Color(TH.camB), cOv = new THREE.Color(TH.ov), cInk = new THREE.Color(TH.ink), cGhost = new THREE.Color(TH['ink-2']);
+    var matBar = new THREE.MeshStandardMaterial({ color: TH.dark ? 0xb9c3cb : 0x8d979f, roughness: 0.4, metalness: 0.7 });
+    // mounting bar and handle
+    var bar = new THREE.Mesh(new THREE.BoxGeometry(b + 0.12, 0.022, 0.03), matBar);
+    bar.position.set(0, -cam.body.h / 2 - 0.013, -0.005); dyn.add(bar);
+    var post = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.16, 12), matBar);
+    post.position.set(0, -cam.body.h / 2 - 0.1, -0.005); dyn.add(post);
+    dyn.add(buildCameraBody(cam, ev.poses[0], cA, ev.port));
+    dyn.add(buildCameraBody(cam, ev.poses[1], cB, ev.port));
+    addLabel('A', [ev.poses[0].center[0], cam.body.h / 2 + 0.05, 0], '#1b1b1b', TH.camA);
+    addLabel('B', [ev.poses[1].center[0], cam.body.h / 2 + 0.05, 0], '#1b1b1b', TH.camB);
+
+    var fp = ev.footprints, bA = P.polyBounds(fp.A.poly);
+    // subject plane with 1 m grid
+    var S = Math.ceil(Math.max(bA.w + b, bA.h, 1.5) * 1.6);
+    var plane = new THREE.Mesh(new THREE.PlaneGeometry(S, S), new THREE.MeshStandardMaterial({ color: new THREE.Color(TH.panel2), roughness: 1, metalness: 0, side: THREE.DoubleSide }));
+    plane.position.z = Z + 0.001; plane.renderOrder = 0; dyn.add(plane);
+    dyn.add(loopFromPoints([[-S / 2, -S / 2], [S / 2, -S / 2], [S / 2, S / 2], [-S / 2, S / 2]], Z + 0.001, cInk, 0.35));
+    if (state.show.grid) {
+      var grid = new THREE.GridHelper(S, S, new THREE.Color(TH.muted), new THREE.Color(TH.line));
+      grid.rotation.x = Math.PI / 2; grid.position.z = Z - 0.001; grid.material.transparent = true; grid.material.opacity = 0.9; dyn.add(grid);
+    }
+    // frustums and footprints
+    var N = 12;
+    [[fp.A, cA, ev.poses[0]], [fp.B, cB, ev.poses[1]]].forEach(function (o) {
+      var poly = o[0].poly, color = o[1], apex = o[2].center;
+      dyn.add(fanMesh(apex, poly, Z, color, 0.10, 3));
+      dyn.add(polyMesh(poly, Z - 0.004, color, 0.22, 1));
+      dyn.add(loopFromPoints(poly, Z - 0.004, color, 0.95));
+      for (var k = 0; k < 4; k++) { var c = poly[k * N]; dyn.add(lineFromPoints([apex, [c[0], c[1], Z]], color, 0.8)); }
+    });
+    if (state.show.air) {
+      [[fp.Aair, ev.poses[0]], [fp.Bair, ev.poses[1]]].forEach(function (o) {
+        var poly = o[0].poly, apex = o[1].center;
+        if (!o[0].clipped) {
+          dyn.add(loopFromPoints(poly, Z - 0.002, cGhost, 0.55, true));
+          for (var k = 0; k < 4; k++) { var c = poly[k * N]; dyn.add(lineFromPoints([apex, [c[0], c[1], Z]], cGhost, 0.5, true)); }
+        } else {
+          var rays = o[0].rays;
+          for (var k2 = 0; k2 < 4; k2++) { var d = P.toRig(rays[k2 * N].air, o[1]); var L = Z * 1.1; dyn.add(lineFromPoints([apex, [apex[0] + d[0] * L, apex[1] + d[1] * L, apex[2] + d[2] * L]], cGhost, 0.5, true)); }
+        }
+      });
+    }
+    var ov = fp.overlap;
+    if (ov.length >= 3) {
+      dyn.add(polyMesh(ov, Z - 0.006, cOv, 0.45, 2));
+      dyn.add(loopFromPoints(ov, Z - 0.006, cOv, 1));
+      var c0 = P.polyCentroid(ov), bo = ev.size.overlap;
+      addLabel('overlap ' + bo.w.toFixed(2) + ' × ' + bo.h.toFixed(2) + ' m · ' + pct(ev.areas.fraction) + ' of one frame', [c0[0], c0[1] - bo.h * 0.25, Z - 0.01], '#1b1b1b', hexToRgba(TH.ov, 0.95));
+    } else {
+      addLabel('no stereo overlap at this distance', [0, 0, Z - 0.01], '#ffffff', hexToRgba(TH.crit, 0.95));
+    }
+    // reference object of known size
+    var ref = refObjectGroup(state.refObject, Z - 0.002); if (ref) dyn.add(ref);
+    // dimension lines and labels
+    var yb = cam.body.h / 2 + 0.09;
+    dyn.add(lineFromPoints([[-b / 2, yb, 0], [b / 2, yb, 0]], cInk, 0.8));
+    dyn.add(lineFromPoints([[-b / 2, yb - 0.03, 0], [-b / 2, yb + 0.03, 0]], cInk, 0.8));
+    dyn.add(lineFromPoints([[b / 2, yb - 0.03, 0], [b / 2, yb + 0.03, 0]], cInk, 0.8));
+    addLabel('b = ' + fmtLen(b), [0, yb + 0.06, 0]);
+    dyn.add(lineFromPoints([[0, 0, 0], [0, 0, Z]], cInk, 0.6, true));
+    addLabel('Z = ' + fmtLen(Z), [0, 0, Z * 0.5]);
+    addLabel('one frame ' + bA.w.toFixed(2) + ' × ' + bA.h.toFixed(2) + ' m', [bA.minx + bA.w * 0.5, bA.maxy + 0.02 + bA.h * 0.05, Z - 0.01], '#1b1b1b', hexToRgba(TH.camA, 0.92));
+    if (isFinite(ev.distances.zCross) && ev.distances.zCross < Z * 6 && state.convergence > 0) {
+      var zc = ev.distances.zCross;
+      var sph = new THREE.Mesh(new THREE.SphereGeometry(0.02 + Z * 0.006, 16, 12), new THREE.MeshBasicMaterial({ color: cInk })); sph.position.set(0, 0, zc); dyn.add(sph);
+      addLabel('axes cross at ' + fmtLen(zc), [0, 0.04 + Z * 0.02, zc]);
+      dyn.add(lineFromPoints([ev.poses[0].center, [0, 0, zc]], cInk, 0.35, true));
+      dyn.add(lineFromPoints([ev.poses[1].center, [0, 0, zc]], cInk, 0.35, true));
+    }
+    // orientation of the whole picture: nadir = cameras look down
+    rig.position.set(0, 0, 0);
+    rig.rotation.set(state.pitch * P.DEG, 0, 0);
+  }
+
+  /* ---------------- orbit controls ---------------- */
+  var orbit = { target: new THREE.Vector3(0, 0, 0), r: 6, theta: 0.75, phi: 1.22, mode: 'orbit' };
+  function applyOrbit() {
+    var t = orbit.target, r = orbit.r, sp = Math.sin(orbit.phi);
+    cam3.position.set(t.x + r * sp * Math.sin(orbit.theta), t.y + r * Math.cos(orbit.phi), t.z + r * sp * Math.cos(orbit.theta));
+    cam3.lookAt(t);
+  }
+  function fitView(keepAngles) {
+    var ev = lastEv; if (!ev) return;
+    var Z = state.Z;
+    var planeC = new THREE.Vector3(0, 0, Z).applyMatrix4(rig.matrixWorld);
+    var rigC = new THREE.Vector3(0, 0, 0).applyMatrix4(rig.matrixWorld);
+    orbit.target.copy(planeC).lerp(rigC, 0.45);
+    var ext = Math.max(ev.size.single.w + state.baseline, ev.size.single.h, Z) ;
+    orbit.r = Math.max(1.2, ext * 1.25 + 0.8);
+    if (!keepAngles) { orbit.theta = 0.75; orbit.phi = 1.22; }
+    applyOrbit();
+  }
+  // [theta, phi] per view and mounting pitch (90 = nadir, 45 = oblique, 0 = forward)
+  var VIEWS = {
+    orbit: { 90: [0.75, 1.22], 45: [-2.35, 1.05], 0: [-2.3, 1.05] },
+    plan:  { 90: [0, 0.02], 45: [0, 0.02], 0: [0, 0.02] },
+    side:  { 90: [Math.PI / 2, 1.45], 45: [Math.PI / 2, 1.3], 0: [Math.PI / 2, 1.35] },
+    front: { 90: [Math.PI, 0.05], 45: [Math.PI, 1.0], 0: [Math.PI, 1.45] }
+  };
+  function setView(v) {
+    if (v !== 'fit') orbit.mode = v;
+    var key = state.pitch >= 70 ? 90 : state.pitch >= 20 ? 45 : 0;
+    var a = (VIEWS[v] || VIEWS[orbit.mode] || VIEWS.orbit)[key];
+    if (v !== 'fit') { orbit.theta = a[0]; orbit.phi = a[1]; }
+    fitView(true);
+    var btns = document.querySelectorAll('.views button');
+    for (var i = 0; i < btns.length; i++) btns[i].setAttribute('aria-pressed', String(btns[i].getAttribute('data-view') === orbit.mode));
+  }
+  (function () {
+    var active = {}, last = null, pinchD = 0;
+    canvas.addEventListener('pointerdown', function (e) { active[e.pointerId] = { x: e.clientX, y: e.clientY, btn: e.button, shift: e.shiftKey }; canvas.setPointerCapture(e.pointerId); last = { x: e.clientX, y: e.clientY }; var ids = Object.keys(active); if (ids.length === 2) pinchD = dist(active[ids[0]], active[ids[1]]); });
+    canvas.addEventListener('pointermove', function (e) {
+      if (!active[e.pointerId]) return;
+      active[e.pointerId].x = e.clientX; active[e.pointerId].y = e.clientY;
+      var ids = Object.keys(active);
+      if (ids.length === 2) { var d = dist(active[ids[0]], active[ids[1]]); if (pinchD > 0) orbit.r *= pinchD / d; pinchD = d; orbit.r = Math.min(80, Math.max(0.5, orbit.r)); applyOrbit(); return; }
+      var dx = e.clientX - last.x, dy = e.clientY - last.y; last = { x: e.clientX, y: e.clientY };
+      var a = active[e.pointerId];
+      if (a.btn === 2 || a.shift) {
+        var right = new THREE.Vector3(), up = new THREE.Vector3();
+        cam3.matrixWorld.extractBasis(right, up, new THREE.Vector3());
+        var k = orbit.r * 0.0016; orbit.target.addScaledVector(right, -dx * k).addScaledVector(up, dy * k);
+      } else { orbit.theta -= dx * 0.006; orbit.phi = Math.min(1.56, Math.max(0.02, orbit.phi - dy * 0.006)); }
+      applyOrbit();
+    });
+    var end = function (e) { delete active[e.pointerId]; pinchD = 0; };
+    canvas.addEventListener('pointerup', end); canvas.addEventListener('pointercancel', end);
+    canvas.addEventListener('wheel', function (e) { e.preventDefault(); orbit.r = Math.min(80, Math.max(0.5, orbit.r * Math.exp(e.deltaY * 0.0012))); applyOrbit(); }, { passive: false });
+    canvas.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+    function dist(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
+  })();
+
+  function resize() {
+    var w = canvas.clientWidth, h = canvas.clientHeight;
+    if (!w || !h) return;
+    if (canvas.width !== Math.floor(w * renderer.getPixelRatio()) || canvas.height !== Math.floor(h * renderer.getPixelRatio())) {
+      renderer.setSize(w, h, false); cam3.aspect = w / h; cam3.updateProjectionMatrix();
+    }
+  }
+  var tmpV = new THREE.Vector3();
+  function frame() {
+    resize();
+    var hpx = canvas.clientHeight || 1;
+    for (var i = 0; i < labels.length; i++) {
+      var sp = labels[i]; sp.getWorldPosition(tmpV);
+      var d = cam3.position.distanceTo(tmpV);
+      var wh = 2 * d * Math.tan(cam3.fov / 2 * P.DEG) * (sp.userData.px / hpx);
+      sp.scale.set(wh * sp.userData.aspect, wh, 1);
+    }
+    renderer.render(scene, cam3);
+    requestAnimationFrame(frame);
+  }
+
+  /* ---------------- charts ---------------- */
+  function niceStep(span, n) { var raw = span / n, p = Math.pow(10, Math.floor(Math.log10(raw))), f = raw / p; return (f < 1.5 ? 1 : f < 3.5 ? 2 : f < 7.5 ? 5 : 10) * p; }
+  function lineChart(el, cfg) {
+    var W = 420, H = 220, L = 46, R = 14, T = 16, B = 34;
+    var xs = cfg.xs, ys = cfg.ys, n = xs.length;
+    var xmax = xs[n - 1], xmin = xs[0];
+    var ymax = cfg.ymax != null ? cfg.ymax : Math.max.apply(null, ys.filter(isFinite)) * 1.08 || 1;
+    var ymin = 0;
+    var sx = function (x) { return L + (x - xmin) / (xmax - xmin) * (W - L - R); };
+    var sy = function (y) { return T + (1 - (y - ymin) / (ymax - ymin)) * (H - T - B); };
+    var svgNS = 'http://www.w3.org/2000/svg';
+    var svg = document.createElementNS(svgNS, 'svg'); svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H); svg.setAttribute('role', 'img'); svg.setAttribute('aria-label', cfg.aria || '');
+    function el2(tag, attrs, text) { var e = document.createElementNS(svgNS, tag); for (var k in attrs) e.setAttribute(k, attrs[k]); if (text != null) e.textContent = text; return e; }
+    // grid & axes
+    var ystep = niceStep(ymax - ymin, 4);
+    for (var y = ymin; y <= ymax + 1e-9; y += ystep) { svg.appendChild(el2('line', { x1: L, x2: W - R, y1: sy(y), y2: sy(y), 'class': 'gr' })); svg.appendChild(el2('text', { x: L - 6, y: sy(y) + 3.5, 'text-anchor': 'end' }, cfg.yfmt(y))); }
+    var xstep = niceStep(xmax - xmin, 5);
+    for (var x = Math.ceil(xmin / xstep) * xstep; x <= xmax + 1e-9; x += xstep) { svg.appendChild(el2('text', { x: sx(x), y: H - B + 14, 'text-anchor': 'middle' }, cfg.xfmt(x))); }
+    svg.appendChild(el2('line', { x1: L, x2: W - R, y1: sy(ymin), y2: sy(ymin), 'class': 'ax' }));
+    svg.appendChild(el2('text', { x: W - R, y: H - 4, 'text-anchor': 'end', 'class': 't' }, cfg.xlabel));
+    svg.appendChild(el2('text', { x: L - 40, y: T - 4, 'class': 't' }, cfg.ylabel));
+    // area + line
+    var d = '', da = 'M' + sx(xs[0]) + ',' + sy(ymin);
+    for (var i = 0; i < n; i++) { var yy = Math.min(ys[i], ymax); d += (i ? 'L' : 'M') + sx(xs[i]).toFixed(1) + ',' + sy(yy).toFixed(1); da += 'L' + sx(xs[i]).toFixed(1) + ',' + sy(yy).toFixed(1); }
+    da += 'L' + sx(xs[n - 1]) + ',' + sy(ymin) + 'Z';
+    svg.appendChild(el2('path', { d: da, 'class': 'ar' }));
+    svg.appendChild(el2('path', { d: d, 'class': 'ln' }));
+    // markers
+    (cfg.markers || []).forEach(function (m, idx) {
+      if (!isFinite(m.x) || m.x < xmin || m.x > xmax) return;
+      svg.appendChild(el2('line', { x1: sx(m.x), x2: sx(m.x), y1: T, y2: sy(ymin), 'class': 'mk ' + (m.cls || '') }));
+      var anchor = sx(m.x) > W - 70 ? 'end' : 'start';
+      svg.appendChild(el2('text', { x: sx(m.x) + (anchor === 'end' ? -3 : 3), y: T + 10 + (idx % 3) * 11, 'text-anchor': anchor, 'class': 't' }, m.label));
+    });
+    // current Z dot
+    var ci = nearestIndex(xs, cfg.cur);
+    if (ci >= 0) svg.appendChild(el2('circle', { cx: sx(xs[ci]), cy: sy(Math.min(ys[ci], ymax)), r: 4.5, 'class': 'dot' }));
+    // hover layer
+    var xh = el2('line', { x1: 0, x2: 0, y1: T, y2: sy(ymin), 'class': 'xh', visibility: 'hidden' }); svg.appendChild(xh);
+    var tip = el2('g', { 'class': 'tip', visibility: 'hidden' });
+    var tr = el2('rect', { rx: 4, ry: 4, width: 120, height: 36 }), tt = el2('text', { x: 8, y: 15 }), ts = el2('text', { x: 8, y: 29, 'class': 'sub' });
+    tip.appendChild(tr); tip.appendChild(tt); tip.appendChild(ts); svg.appendChild(tip);
+    var hit = el2('rect', { x: L, y: T, width: W - L - R, height: H - T - B, fill: 'transparent' }); svg.appendChild(hit);
+    function show(clientX) {
+      var r = svg.getBoundingClientRect(); var x = (clientX - r.left) / r.width * W;
+      var xv = xmin + (x - L) / (W - L - R) * (xmax - xmin); var i = nearestIndex(xs, xv);
+      if (i < 0) return;
+      xh.setAttribute('x1', sx(xs[i])); xh.setAttribute('x2', sx(xs[i])); xh.setAttribute('visibility', 'visible');
+      tt.textContent = cfg.ytip(ys[i]); ts.textContent = 'at Z = ' + xs[i].toFixed(2) + ' m';
+      var tw = Math.max(tt.getComputedTextLength ? tt.getComputedTextLength() : 60, ts.getComputedTextLength ? ts.getComputedTextLength() : 60) + 16;
+      tr.setAttribute('width', tw);
+      var tx = sx(xs[i]) + 10; if (tx + tw > W - R) tx = sx(xs[i]) - tw - 10;
+      tip.setAttribute('transform', 'translate(' + tx + ',' + (T + 2) + ')'); tip.setAttribute('visibility', 'visible');
+    }
+    hit.addEventListener('pointermove', function (e) { show(e.clientX); });
+    hit.addEventListener('pointerleave', function () { xh.setAttribute('visibility', 'hidden'); tip.setAttribute('visibility', 'hidden'); });
+    el.textContent = ''; el.appendChild(svg);
+  }
+  function nearestIndex(xs, x) { if (!isFinite(x)) return -1; var bi = -1, bd = Infinity; for (var i = 0; i < xs.length; i++) { var d = Math.abs(xs[i] - x); if (d < bd) { bd = d; bi = i; } } return bi; }
+
+  /* ---------------- results ---------------- */
+  var lastEv = null, lastSeries = null;
+  function tile(k, v, unit, s) { return '<div class="tile"><div class="k">' + k + '</div><div class="v">' + v + (unit ? '<small>' + unit + '</small>' : '') + '</div><div class="s">' + (s || '') + '</div></div>'; }
+  function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+
+  function renderResults(ev) {
+    var cam = currentCamera(), mode = currentMode();
+    var pr = ev.precision;
+    $('tiles').innerHTML =
+      tile('Field of view under water (H × V)', deg(ev.fov.hWater, 0) + ' × ' + deg(ev.fov.vWater, 0), '', (ev.port.type === 'dome' ? 'dome R ' + state.domeR + ' mm' : 'flat port') + ' · in air ' + deg(ev.fov.hAir, 0) + ' × ' + deg(ev.fov.vAir, 0) + ' · diag ' + deg(ev.fov.dWater, 0)) +
+      tile('One frame covers at Z', ev.size.single.w.toFixed(2) + ' × ' + ev.size.single.h.toFixed(2), 'm', ev.areas.single.toFixed(2) + ' m² · ' + (ev.size.single.w / ev.size.single.h).toFixed(2) + ':1') +
+      tile('Stereo overlap at Z', pct(ev.areas.fraction), '', ev.areas.overlap.toFixed(2) + ' m² · centreline ' + pct(ev.overlap1d.fraction)) +
+      tile('Depth precision σ<sub>Z</sub> at Z', fmtMm(pr.sigmaDepth), '', '1-σ · lateral ' + fmtMm(pr.sigmaLateral) + ' · ' + (pr.sigmaDepth / state.Z * 100).toFixed(2) + ' % of Z') +
+      tile('Ground sampling distance', (ev.gsd * 1000).toFixed(2), 'mm/px', 'disparity ' + ev.disparity.toFixed(0) + ' px · f = ' + ev.fpxWater.toFixed(0) + ' px in water (' + (ev.port.type === 'dome' ? '× 1, dome' : '× n, flat') + ')') +
+      tile('Ray intersection angle γ', deg(pr.gammaDeg, 1), '', 'b/Z = ' + ev.ratioBZ.toFixed(2) + ' · n = ' + ev.n.toFixed(4));
+
+    var d = ev.distances, items = [];
+    items.push([fmtLen(d.zNear), 'overlap begins (inner edges of the two fields cross)']);
+    items.push([fmtLen(d.zFull), state.convergence > 0 ? 'footprints coincide: 100 % overlap' : 'footprints coincide: never with parallel axes (overlap → 100 % only as Z → ∞)']);
+    items.push([fmtLen(d.zCross), state.convergence > 0 ? 'optical axes cross' : 'optical axes cross: never (parallel)']);
+    if (isFinite(d.zFar)) items.push([fmtLen(d.zFar), 'overlap ends again: convergence exceeds the in-water half field of view']);
+    var fo = ev.focus;
+    if (ev.port.type === 'dome') {
+      items.push([fmtLen(fo.imageOfPlane), 'virtual image of the subject plane, from the dome centre: what the lens must focus on']);
+      items.push([fmtLen(fo.imageOfInfinity), 'virtual image of infinity: the whole scene is compressed between the dome and this distance']);
+      if (fo.nearestSharp != null) items.push([fmtLen(fo.nearestSharp), 'nearest sharp subject (its virtual image reaches the in-air near focus of ' + fmtLen(cam.nearFocusAir) + ')']);
+      else items.push(['never', 'sharp with this dome: even infinity images inside the near focus (' + fmtLen(cam.nearFocusAir) + '); needs R ≥ ' + fmtLen(fo.minDomeRadiusForInfinity) + ' or a close-up lens']);
+    } else {
+      items.push([fmtLen(fo.nearestSharp), 'nearest sharp distance under water (in-air near focus ' + fmtLen(cam.nearFocusAir) + ' × n)']);
+      items.push([fmtLen(fo.imageOfPlane), 'apparent distance of the subject plane (what the lens must focus on)']);
+      items.push([deg(ev.fov.maxFlatPort, 1), 'widest field any flat-port camera can have in this water (critical angle)']);
+    }
+    $('distances').innerHTML = items.map(function (it) { return '<dt>' + it[0] + '</dt><dd>' + it[1] + '</dd>'; }).join('');
+
+    var adv = [];
+    var g = pr.gammaDeg;
+    if (ev.areas.fraction <= 0) adv.push(['crit', 'No stereo overlap at Z: bring the subject plane beyond ' + fmtLen(d.zNear) + ', shorten the baseline, or add convergence.']);
+    else if (ev.areas.fraction < 0.4) adv.push(['crit', 'Overlap below 40 %: little of each frame is usable in stereo. Reduce b/Z or converge the cameras (Z<sub>full</sub> = ' + fmtLen(d.zFull) + ').']);
+    else if (ev.areas.fraction < 0.6) adv.push(['warn', 'Overlap below 60 %: acceptable for stereo measurement, marginal for SfM mapping that relies on multi-image coverage.']);
+    else adv.push(['good', 'Overlap ' + pct(ev.areas.fraction) + ' at Z: good stereo coverage.']);
+    if (g < 5) adv.push(['crit', 'Intersection angle ' + deg(g) + ' is very weak: depth precision degrades as 1/γ. Increase the baseline or move closer.']);
+    else if (g < 10) adv.push(['warn', 'Intersection angle ' + deg(g) + ' is on the weak side (b/Z ' + ev.ratioBZ.toFixed(2) + '); 10–40° is the usual design window.']);
+    else if (g > 45) adv.push(['warn', 'Intersection angle ' + deg(g) + ' is large: strong geometry, but perspective differences between views reduce automatic feature matching.']);
+    else adv.push(['good', 'Intersection angle ' + deg(g) + ' (b/Z ' + ev.ratioBZ.toFixed(2) + ') sits in the 10–40° window that balances precision and matchability.']);
+    if (state.convergence > 0 && state.Z > d.zFull * 1.6) adv.push(['warn', 'Z is well beyond Z<sub>full</sub>: the fields have crossed and the overlap fraction is falling again; a smaller convergence would hold more overlap at this distance.']);
+    if (state.convergence / 2 >= ev.fov.hWater / 2) adv.push(['crit', 'Each camera is toed in by more than its in-water half field: the fields separate again beyond ' + fmtLen(d.zFar) + '.']);
+    var evFlat = compute(null, 'flat'), evDome = compute(null, 'dome');
+    if (ev.port.type === 'flat') {
+      if (state.Z < fo.nearestSharp) adv.push(['crit', 'Subject plane closer than the in-water near-focus limit (' + fmtLen(fo.nearestSharp) + '): images will be soft.']);
+    } else {
+      var nf = cam.nearFocusAir;
+      if (fo.imageOfInfinity < nf * 0.85) adv.push(['crit', 'Dome R = ' + state.domeR + ' mm images even infinity at ' + fmtLen(fo.imageOfInfinity) + ', inside the lens\'s near focus (' + fmtLen(nf) + '): nothing will be sharp. Use R ≥ ' + fmtLen(fo.minDomeRadiusForInfinity) + ' or fit a close-up lens.']);
+      else if (fo.imageOfInfinity < nf) adv.push(['warn', 'Dome R = ' + state.domeR + ' mm images infinity at ' + fmtLen(fo.imageOfInfinity) + ', just inside the near focus (' + fmtLen(nf) + '): expect slight softness everywhere; R ≥ ' + fmtLen(fo.minDomeRadiusForInfinity) + ' is safer.']);
+      else if (fo.imageOfPlane < nf) adv.push(['warn', 'The subject plane images at ' + fmtLen(fo.imageOfPlane) + ', closer than the near focus (' + fmtLen(nf) + '): keep subjects beyond ' + fmtLen(fo.nearestSharp) + '.']);
+      else adv.push(['good', 'Dome focus: the subject plane images at ' + fmtLen(fo.imageOfPlane) + ', beyond the near focus (' + fmtLen(nf) + ').']);
+      adv.push(['info', 'Dome vs flat here: field ' + deg(ev.fov.hWater, 0) + ' × ' + deg(ev.fov.vWater, 0) + ' instead of ' + deg(evFlat.fov.hWater, 0) + ' × ' + deg(evFlat.fov.vWater, 0) + '; GSD ' + (ev.gsd * 1000).toFixed(2) + ' vs ' + (evFlat.gsd * 1000).toFixed(2) + ' mm/px; σZ ' + fmtMm(ev.precision.sigmaDepth) + ' vs ' + fmtMm(evFlat.precision.sigmaDepth) + '. No port pincushion or colour fringing, but at f/2.5–2.8 the curved virtual image softens the frame corners.']);
+      if (state.domeOff > 0) adv.push(['info', 'Pupil ' + state.domeOff + ' mm behind the dome centre: chief rays meet the dome off-normal, so the field is ' + deg(ev.fov.hWater, 1) + ' × ' + deg(ev.fov.vWater, 1) + ' instead of ' + deg(ev.fov.hAir, 1) + ' × ' + deg(ev.fov.vAir, 1) + ' and a mild radial distortion appears; calibrate in water as with a flat port.']);
+    }
+    renderCompare(evFlat, evDome);
+    if (ev.contrast < 0.25) adv.push(['crit', 'Contrast transmittance at Z is ' + pct(ev.contrast) + ' (visibility ' + state.visibility + ' m): texture will be too washed out for reliable matching. Keep Z under about ' + fmtLen(1.4 / ev.attenuation) + '.']);
+    else if (ev.contrast < 0.45) adv.push(['warn', 'Contrast transmittance at Z is ' + pct(ev.contrast) + ': usable in good light; expect weaker tie points toward the frame edges.']);
+    else adv.push(['good', 'Contrast transmittance at Z is ' + pct(ev.contrast) + ' for ' + state.visibility + ' m visibility.']);
+    if (ev.port.type === 'flat' && ev.fov.hAir > ev.fov.maxFlatPort) adv.push(['info', 'This lens is wider in air (' + deg(ev.fov.hAir, 0) + ') than any flat port can pass (' + deg(ev.fov.maxFlatPort, 0) + '): the outer part of the image is compressed into the frame edge with strong distortion and colour fringing. A rectilinear or narrower mode loses little real coverage under water and calibrates more cleanly.']);
+    if (mode.proj !== 'rectilinear') adv.push(['info', 'Fisheye-type mode: calibrate in water with a fisheye camera model (e.g. Metashape "Fisheye", OpenCV fisheye) rather than Brown-Conrady.']);
+    $('advice').innerHTML = adv.map(function (a) { return '<li class="' + a[0] + '">' + a[1] + '</li>'; }).join('');
+
+    // charts: sweep Z
+    var zmax = Math.max(3 * state.Z, isFinite(d.zFull) ? Math.min(d.zFull * 1.6, 40) : 0, 4);
+    zmax = Math.min(zmax, 40);
+    var zmin = Math.max(0.2, Math.min(state.Z * 0.25, d.zNear * 0.5));
+    var xs = [], fr = [], sg = [], gsd = [], ovw = [], fw = [];
+    var N = 90;
+    for (var i = 0; i <= N; i++) {
+      var z = zmin + (zmax - zmin) * i / N; xs.push(z);
+      var o = P.overlapAt(ev.fov.hWater / 2, state.baseline, state.convergence, z); fr.push(o.fraction); ovw.push(o.width); fw.push(o.single);
+      var p = P.pointPrecision([0, 0, z], [ev.poses[0].center, ev.poses[1].center], state.sigmaPx, ev.fpxWater); sg.push(p.sigmaDepth * 1000);
+      gsd.push(z / ev.fpxWater * 1000);
+    }
+    lastSeries = { xs: xs, fr: fr, sg: sg, gsd: gsd, ovw: ovw, fw: fw };
+    var markers = [{ x: d.zNear, label: 'Z near' }, { x: d.zFull, label: 'Z full', cls: 'mk-ov' }, { x: d.zCross, label: 'axes cross' }, { x: d.zFar, label: 'Z far' }];
+    lineChart($('chartOverlap'), { xs: xs, ys: fr, ymax: 1.0, xlabel: 'Z (m)', ylabel: 'overlap', xfmt: function (x) { return x.toFixed(x < 10 ? 1 : 0); }, yfmt: function (y) { return (y * 100).toFixed(0) + '%'; }, ytip: function (y) { return (y * 100).toFixed(0) + ' % overlap'; }, markers: markers, cur: state.Z, aria: 'Overlap fraction along the centreline against working distance' });
+    $('ovSub').textContent = 'centreline width fraction · b = ' + state.baseline.toFixed(2) + ' m, θ = ' + state.convergence + '°';
+    var sgmax = Math.max.apply(null, sg); var ycap = Math.min(sgmax, Math.max(sg[nearestIndex(xs, state.Z)] * 4, sgmax * 0.3));
+    lineChart($('chartSigma'), { xs: xs, ys: sg, ymax: ycap, xlabel: 'Z (m)', ylabel: 'σZ (mm)', xfmt: function (x) { return x.toFixed(x < 10 ? 1 : 0); }, yfmt: function (y) { return y < 10 ? y.toFixed(1) : y.toFixed(0); }, ytip: function (y) { return 'σZ = ' + (y < 10 ? y.toFixed(2) : y.toFixed(1)) + ' mm'; }, markers: [{ x: d.zNear, label: 'Z near' }], cur: state.Z, aria: 'Depth precision against working distance' });
+    $('sgSub').textContent = '1-σ on the axis · σpx = ' + state.sigmaPx + ' px · grows with Z²';
+    if (!$('table').hidden) renderTable();
+    $('nReadout').textContent = 'n = ' + ev.n.toFixed(4) + ' (' + salinity() + ' PSU, ' + state.T + ' °C, ' + state.lambda + ' nm) · focal length × ' + ev.n.toFixed(3) + ' under water · max flat-port FOV ' + deg(ev.fov.maxFlatPort, 1);
+    $('modeReadout').textContent = mode.w + ' × ' + mode.h + ' px · ' + mode.proj + ' · in air ' + deg(mode.hfov, 0) + ' × ' + deg(mode.vfov, 0) + ' (diag ' + deg(ev.fov.dAir, 0) + ') · f ≈ ' + ev.lens.fpx.toFixed(0) + ' px';
+  }
+
+  function renderCompare(f, d) {
+    var cam = currentCamera();
+    var active = ev2 => (ev2.port.type === state.port ? ' (active)' : '');
+    function row(k, a, b) { return '<tr><th>' + k + '</th><td>' + a + '</td><td>' + b + '</td></tr>'; }
+    var fd = d.focus, ff = f.focus;
+    var html = '<table class="tv"><thead><tr><th></th><th>Flat port' + active(f) + '</th><th>Dome R ' + state.domeR + ' mm' + active(d) + '</th></tr></thead><tbody>' +
+      row('Field under water H × V (diag)', deg(f.fov.hWater, 0) + ' × ' + deg(f.fov.vWater, 0) + ' (' + deg(f.fov.dWater, 0) + ')', deg(d.fov.hWater, 0) + ' × ' + deg(d.fov.vWater, 0) + ' (' + deg(d.fov.dWater, 0) + ')') +
+      row('One frame at Z', f.size.single.w.toFixed(2) + ' × ' + f.size.single.h.toFixed(2) + ' m', d.size.single.w.toFixed(2) + ' × ' + d.size.single.h.toFixed(2) + ' m') +
+      row('Stereo overlap at Z', pct(f.areas.fraction), pct(d.areas.fraction)) +
+      row('Overlap begins at', fmtLen(f.distances.zNear), fmtLen(d.distances.zNear)) +
+      row('Focal length in water', f.fpxWater.toFixed(0) + ' px', d.fpxWater.toFixed(0) + ' px') +
+      row('Ground sampling distance', (f.gsd * 1000).toFixed(2) + ' mm/px', (d.gsd * 1000).toFixed(2) + ' mm/px') +
+      row('Depth precision σZ', fmtMm(f.precision.sigmaDepth), fmtMm(d.precision.sigmaDepth)) +
+      row('Lens must focus at', fmtLen(ff.imageOfPlane) + ' (apparent distance)', fmtLen(fd.imageOfPlane) + ' (virtual image)') +
+      row('Nearest sharp subject', fmtLen(ff.nearestSharp), fd.nearestSharp != null ? fmtLen(fd.nearestSharp) : 'never (R < ' + fmtLen(fd.minDomeRadiusForInfinity) + ')') +
+      row('Port distortion and colour', 'pincushion + lateral colour, growing to the edges', (state.domeOff > 0 ? 'mild, from the off-centre pupil' : 'none if centred') + '; soft corners at f/2.5–2.8') +
+      '</tbody></table>';
+    $('portCompare').innerHTML = html;
+  }
+
+  function renderTable() {
+    if (!lastSeries || !lastEv) return;
+    var s = lastSeries, rows = [], want = [0.5, 0.75, 1, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10, 15, 20, 30];
+    var zs = want.filter(function (z) { return z >= s.xs[0] && z <= s.xs[s.xs.length - 1]; }); zs.push(state.Z); zs.sort(function (a, b) { return a - b; });
+    zs.forEach(function (z) {
+      var ev = compute(z);
+      rows.push('<tr' + (z === state.Z ? ' class="cur"' : '') + '><td>' + z.toFixed(2) + '</td><td>' + ev.size.single.w.toFixed(2) + ' × ' + ev.size.single.h.toFixed(2) + '</td><td>' + pct(ev.areas.fraction) + '</td><td>' + ev.size.overlap.w.toFixed(2) + '</td><td>' + deg(ev.precision.gammaDeg) + '</td><td>' + (ev.precision.sigmaDepth * 1000).toFixed(2) + '</td><td>' + (ev.gsd * 1000).toFixed(2) + '</td><td>' + pct(ev.contrast) + '</td></tr>');
+    });
+    $('table').innerHTML = '<table class="tv"><thead><tr><th>Z (m)</th><th>frame W × H (m)</th><th>overlap</th><th>overlap W (m)</th><th>γ</th><th>σZ (mm)</th><th>GSD (mm/px)</th><th>contrast</th></tr></thead><tbody>' + rows.join('') + '</tbody></table>';
+  }
+
+  function sourcesHtml() {
+    var html = '';
+    CAMS.forEach(function (c) {
+      if (c.id === 'custom') return;
+      html += '<h3>' + esc(c.name) + '</h3><p>' + esc(c.notes) + ' Sensor ' + esc(c.sensor.type) + ', ' + c.sensor.mp + ' MP' + (c.sensor.pitch_um ? ', ' + c.sensor.pitch_um + ' µm pixels' : '') + '. Waterproof to ' + c.waterproof.native + ' m bare, ' + c.waterproof.housing + ' m in the housing. Body ' + (c.body.w * 1000).toFixed(1) + ' × ' + (c.body.h * 1000).toFixed(1) + ' × ' + (c.body.d * 1000).toFixed(1) + ' mm.</p>';
+      html += '<div class="tablewrap"><table class="tv"><thead><tr><th>Mode</th><th>px</th><th>H°</th><th>V°</th><th>model</th></tr></thead><tbody>' + c.modes.map(function (m) { return '<tr><td>' + esc(m.label) + '</td><td>' + m.w + '×' + m.h + '</td><td>' + m.hfov + '</td><td>' + m.vfov + '</td><td>' + esc(m.proj) + '</td></tr>'; }).join('') + '</tbody></table></div>';
+    });
+    html += '<p>Full references, the derivations and the provenance of every number are in <code>research_notes.md</code> next to this page. Edit <code>cameras.js</code> to add cameras or correct a field angle.</p>';
+    return html;
+  }
+
+  /* ---------------- update ---------------- */
+  var fitPending = true;
+  function update(refit) {
+    var ev = compute(); lastEv = ev;
+    rebuildScene(ev);
+    rig.updateMatrixWorld(true);
+    renderResults(ev);
+    if (refit || fitPending) { fitView(true); fitPending = false; }
+  }
+
+  /* ---------------- wiring ---------------- */
+  function populateCameras() {
+    var sel = $('camera'); sel.innerHTML = CAMS.map(function (c) { return '<option value="' + c.id + '">' + esc(c.name) + '</option>'; }).join('');
+    sel.value = state.cameraId; populateModes();
+  }
+  function populateModes() {
+    var cam = currentCamera(), sel = $('mode');
+    sel.innerHTML = cam.modes.map(function (m) { return '<option value="' + m.id + '">' + esc(m.label) + '</option>'; }).join('');
+    var ok = cam.modes.some(function (m) { return m.id === state.modeId; }); if (!ok) state.modeId = cam.modes[0].id; sel.value = state.modeId;
+    $('customFields').hidden = cam.id !== 'custom'; $('mode').parentElement.hidden = cam.id === 'custom';
+    $('cameraNote').textContent = cam.notes;
+  }
+  function bindPair(rangeId, numId, key, refit, post) {
+    var r = $(rangeId), n = $(numId);
+    var set = function (v, from) { if (!isFinite(v)) return; state[key] = v; if (key === 'baseline' || key === 'convergence' || key === 'Z') $('preset').value = ''; if (from !== r) r.value = v; if (from !== n) n.value = v; if (post) post(); update(refit); };
+    r.addEventListener('input', function () { set(parseFloat(r.value), r); });
+    n.addEventListener('change', function () { set(parseFloat(n.value), n); });
+    r.value = state[key]; n.value = state[key];
+  }
+  function bindSeg(selector, attr, key, refit) {
+    var btns = document.querySelectorAll(selector + ' button');
+    for (var i = 0; i < btns.length; i++) btns[i].addEventListener('click', function (e) {
+      var v = parseFloat(e.currentTarget.getAttribute(attr)); state[key] = v;
+      for (var j = 0; j < btns.length; j++) btns[j].setAttribute('aria-pressed', String(btns[j] === e.currentTarget));
+      update(refit); if (key === 'pitch') setView(orbit.mode);
+    });
+  }
+
+  function setPairUI(rangeId, numId, v) { $(rangeId).value = v; $(numId).value = v; }
+  function setSegUI(selector, attr, v) { var btns = document.querySelectorAll(selector + ' button'); for (var i = 0; i < btns.length; i++) btns[i].setAttribute('aria-pressed', String(parseFloat(btns[i].getAttribute(attr)) === v)); }
+  $('preset').innerHTML += PRESETS.map(function (p) { return '<option value="' + p.id + '">' + esc(p.label) + '</option>'; }).join('');
+  $('preset').addEventListener('change', function () {
+    var p = null; for (var i = 0; i < PRESETS.length; i++) if (PRESETS[i].id === $('preset').value) p = PRESETS[i];
+    if (!p) return;
+    state.baseline = p.baseline; state.convergence = p.convergence; state.Z = p.Z; state.pitch = p.pitch;
+    setPairUI('baseline', 'baselineN', p.baseline); setPairUI('conv', 'convN', p.convergence); setPairUI('range', 'rangeN', p.Z); setSegUI('[aria-label="Mounting"]', 'data-pitch', p.pitch);
+    update(true); setView(orbit.mode); toast('Preset applied: b = ' + fmtLen(p.baseline) + ', θ = ' + p.convergence + '°, Z = ' + fmtLen(p.Z));
+  });
+  populateCameras();
+  $('camera').addEventListener('change', function () { state.cameraId = $('camera').value; populateModes(); update(true); });
+  $('mode').addEventListener('change', function () { state.modeId = $('mode').value; update(true); });
+  ['cHfov', 'cVfov', 'cW', 'cH', 'cProj'].forEach(function (id) {
+    $(id).addEventListener('change', function () {
+      state.custom = { hfov: parseFloat($('cHfov').value) || 90, vfov: parseFloat($('cVfov').value) || 70, w: parseInt($('cW').value, 10) || 4000, h: parseInt($('cH').value, 10) || 3000, proj: $('cProj').value };
+      update(true);
+    });
+  });
+  $('port').addEventListener('change', function () { state.port = $('port').value; $('domeFields').hidden = state.port !== 'dome'; update(false); });
+  bindPair('domeR', 'domeRN', 'domeR', false);
+  bindPair('domeT', 'domeTN', 'domeT', false);
+  bindPair('domeOff', 'domeOffN', 'domeOff', false);
+  $('domeMat').addEventListener('change', function () { state.domeN = parseFloat($('domeMat').value); update(false); });
+  bindPair('baseline', 'baselineN', 'baseline', true);
+  bindPair('conv', 'convN', 'convergence', false);
+  bindSeg('[aria-label="Sensor orientation"]', 'data-roll', 'roll', true);
+  bindSeg('[aria-label="Mounting"]', 'data-pitch', 'pitch', true);
+  bindPair('range', 'rangeN', 'Z', true);
+  bindPair('temp', 'tempN', 'T', false);
+  bindPair('lambda', 'lambdaN', 'lambda', false);
+  bindPair('sal', 'salN', 'S', false);
+  bindPair('vis', 'visN', 'visibility', false);
+  bindPair('sig', 'sigN', 'sigmaPx', false);
+  $('water').addEventListener('change', function () { state.water = $('water').value; $('salField').hidden = state.water !== 'custom'; update(false); });
+  $('mApply').addEventListener('click', function () {
+    var v = parseFloat($('mSpeed').value) * parseFloat($('mInt').value);
+    if (!isFinite(v) || v <= 0) return;
+    state.baseline = Math.round(v * 1000) / 1000; $('baseline').value = state.baseline; $('baselineN').value = state.baseline;
+    state.convergence = 0; $('conv').value = 0; $('convN').value = 0;
+    update(true); toast('Baseline set to ' + fmtLen(state.baseline) + ', convergence 0°');
+  });
+  [['showAir', 'air'], ['showGrid', 'grid'], ['showLabels', 'labels']].forEach(function (p) {
+    $(p[0]).addEventListener('change', function () { state.show[p[1]] = $(p[0]).checked; update(false); });
+  });
+  $('refObj').innerHTML = REF_OBJECTS.map(function (o) { return '<option value="' + o[0] + '">' + esc(o[1]) + '</option>'; }).join('');
+  $('refObj').value = state.refObject;
+  $('refObj').addEventListener('change', function () { state.refObject = $('refObj').value; update(false); });
+  (function () {
+    var mq = window.matchMedia('(prefers-color-scheme: dark)');
+    var onTheme = function () { readTheme(); update(false); };
+    if (mq.addEventListener) mq.addEventListener('change', onTheme); else if (mq.addListener) mq.addListener(onTheme);
+    new MutationObserver(onTheme).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+  })();
+  var vb = document.querySelectorAll('.views button');
+  for (var i = 0; i < vb.length; i++) vb[i].addEventListener('click', function (e) { setView(e.currentTarget.getAttribute('data-view')); });
+  $('btnTable').addEventListener('click', function () { var t = $('table'); t.hidden = !t.hidden; $('btnTable').textContent = t.hidden ? 'Show table' : 'Hide table'; $('btnTable').setAttribute('aria-expanded', String(!t.hidden)); if (!t.hidden) renderTable(); });
+  $('btnCopy').addEventListener('click', function () {
+    var ev = lastEv, cam = currentCamera(), mode = currentMode();
+    var out = {
+      camera: cam.name, mode: mode.label, image_px: [mode.w, mode.h], fov_air_deg: [mode.hfov, mode.vfov],
+      baseline_m: state.baseline, convergence_deg: state.convergence, orientation: state.roll ? 'portrait' : 'landscape', pitch_deg: state.pitch,
+      port: state.port === 'dome' ? { type: 'dome', radius_mm: state.domeR, wall_mm: state.domeT, glass_n: state.domeN, pupil_behind_centre_mm: state.domeOff } : { type: 'flat' },
+      working_distance_m: state.Z, water: { salinity_psu: salinity(), temperature_c: state.T, wavelength_nm: state.lambda, n: +ev.n.toFixed(4) }, visibility_m: state.visibility, sigma_px: state.sigmaPx,
+      results: {
+        fov_water_deg: [+ev.fov.hWater.toFixed(1), +ev.fov.vWater.toFixed(1), +ev.fov.dWater.toFixed(1)],
+        frame_at_Z_m: [+ev.size.single.w.toFixed(3), +ev.size.single.h.toFixed(3)], frame_area_m2: +ev.areas.single.toFixed(3),
+        overlap_fraction: +ev.areas.fraction.toFixed(3), overlap_area_m2: +ev.areas.overlap.toFixed(3), overlap_size_m: [+ev.size.overlap.w.toFixed(3), +ev.size.overlap.h.toFixed(3)],
+        z_near_m: +ev.distances.zNear.toFixed(3), z_full_m: isFinite(ev.distances.zFull) ? +ev.distances.zFull.toFixed(3) : null, z_cross_m: isFinite(ev.distances.zCross) ? +ev.distances.zCross.toFixed(3) : null, z_far_m: isFinite(ev.distances.zFar) ? +ev.distances.zFar.toFixed(3) : null,
+        intersection_angle_deg: +ev.precision.gammaDeg.toFixed(2), sigma_depth_mm: +(ev.precision.sigmaDepth * 1000).toFixed(3), sigma_lateral_mm: +(ev.precision.sigmaLateral * 1000).toFixed(3),
+        gsd_mm_per_px: +(ev.gsd * 1000).toFixed(3), disparity_px: +ev.disparity.toFixed(1), f_px_water: +ev.fpxWater.toFixed(0), contrast_transmittance: +ev.contrast.toFixed(3),
+        lens_focus_distance_m: +ev.focus.imageOfPlane.toFixed(3), nearest_sharp_subject_m: ev.focus.nearestSharp != null ? +ev.focus.nearestSharp.toFixed(3) : null
+      }
+    };
+    var text = JSON.stringify(out, null, 2);
+    var done = function () { toast('Settings and results copied as JSON'); };
+    var fallback = function () { var ta = $('clip'); ta.value = text; ta.hidden = false; ta.className = ''; ta.style.position = 'fixed'; ta.style.left = '0'; ta.style.top = '0'; ta.style.width = '1px'; ta.style.height = '1px'; ta.focus(); ta.select(); try { document.execCommand('copy'); done(); } catch (e) { toast('Copy blocked: select the text manually'); } };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, fallback); else fallback();
+  });
+  var toastT;
+  function toast(msg) { var t = $('toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(function () { t.classList.remove('show'); }, 2200); }
+
+  window.__planner = { state: state, orbit: orbit, cam3: cam3, rig: rig, scene: scene, compute: compute, setView: setView, update: update };
+  $('sourcesBody').innerHTML = sourcesHtml();
+  update(true);
+  setView('orbit');
+  frame();
+})();
+</script>
+</body>
+</html>
