@@ -849,7 +849,7 @@ details.theory li { margin-bottom: 4px; }
       items.push([fmtLen(fo.imageOfPlane), 'virtual image of the subject plane, from the dome centre: what the lens must focus on']);
       items.push([fmtLen(fo.imageOfInfinity), 'virtual image of infinity: the whole scene is compressed between the dome and this distance']);
       if (fo.nearestSharp != null) items.push([fmtLen(fo.nearestSharp), 'nearest sharp subject (its virtual image reaches the in-air near focus of ' + fmtLen(cam.nearFocusAir) + ')']);
-      else items.push(['never', 'sharp with this dome: even infinity images inside the near focus (' + fmtLen(cam.nearFocusAir) + '); needs R ≥ ' + fmtLen(fo.minDomeRadiusForInfinity) + ' or a close-up lens']);
+      else items.push(['none', 'fully sharp at any distance with this dome: even infinity images inside the near focus (' + fmtLen(cam.nearFocusAir) + '); needs R ≥ ' + fmtLen(fo.minDomeRadiusForInfinity) + ' or a close-up lens']);
     } else {
       items.push([fmtLen(fo.nearestSharp), 'nearest sharp distance under water (in-air near focus ' + fmtLen(cam.nearFocusAir) + ' × n)']);
       items.push([fmtLen(fo.imageOfPlane), 'apparent distance of the subject plane (what the lens must focus on)']);
@@ -927,7 +927,7 @@ details.theory li { margin-bottom: 4px; }
       row('Ground sampling distance', (f.gsd * 1000).toFixed(2) + ' mm/px', (d.gsd * 1000).toFixed(2) + ' mm/px') +
       row('Depth precision σZ', fmtMm(f.precision.sigmaDepth), fmtMm(d.precision.sigmaDepth)) +
       row('Lens must focus at', fmtLen(ff.imageOfPlane) + ' (apparent distance)', fmtLen(fd.imageOfPlane) + ' (virtual image)') +
-      row('Nearest sharp subject', fmtLen(ff.nearestSharp), fd.nearestSharp != null ? fmtLen(fd.nearestSharp) : 'never (R < ' + fmtLen(fd.minDomeRadiusForInfinity) + ')') +
+      row('Nearest sharp subject', fmtLen(ff.nearestSharp), fd.nearestSharp != null ? fmtLen(fd.nearestSharp) : 'none fully sharp (needs R ≥ ' + fmtLen(fd.minDomeRadiusForInfinity) + ')') +
       row('Port distortion and colour', 'pincushion + lateral colour, growing to the edges', (state.domeOff > 0 ? 'mild, from the off-centre pupil' : 'none if centred') + '; soft corners at f/2.5–2.8') +
       '</tbody></table>';
     $('portCompare').innerHTML = html;
