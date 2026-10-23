@@ -1,0 +1,1092 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Strobe Lighting Lab</title>
+<meta name="description" content="Interactive, physically based simulator of underwater strobe lighting: beam cones, backscatter, shadows and colour loss for INON Z-330 and S-2000 strobes in clear to turbid water.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: parameters | photograph over two draggable rig diagrams | results; stacks on narrow screens. */
+:root {
+  --bg: #e9f0f3; --panel: #ffffff; --panel-2: #f3f7f9; --ink: #132028; --ink-2: #4b5f6b; --muted: #7d909b; --line: #d5dfe5;
+  --accent: #0d7c8c; --accent-ink: #ffffff; --accent-soft: #d7eef1;
+  --sA: #eb6834; --sB: #1baf7a; --haze: #eda100;
+  --good: #0ca30c; --warn: #c98500; --crit: #d03b3b;
+  --view-bg: #f6f9fa; --view-grid: #e2e9ed; --view-grid-2: #cbd7dd; --sil: #9aa9b1; --sil-fill: rgba(120, 140, 150, 0.16); --subject: #b4558f;
+  --font-display: "Barlow Semi Condensed", "Arial Narrow", system-ui, sans-serif;
+  --font-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --radius: 6px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0c1418; --panel: #141f26; --panel-2: #1a2730; --ink: #e6eef2; --ink-2: #b2c1c9; --muted: #86999f; --line: #26353d;
+    --accent: #3fc0d2; --accent-ink: #052226; --accent-soft: #163a41;
+    --sA: #d95926; --sB: #199e70; --haze: #c98500; --good: #0ca30c; --warn: #fab219; --crit: #e66767;
+    --view-bg: #111b21; --view-grid: #1d2a31; --view-grid-2: #2a3a43; --sil: #6f8590; --sil-fill: rgba(150, 175, 185, 0.14); --subject: #d07ab0;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0c1418; --panel: #141f26; --panel-2: #1a2730; --ink: #e6eef2; --ink-2: #b2c1c9; --muted: #86999f; --line: #26353d;
+  --accent: #3fc0d2; --accent-ink: #052226; --accent-soft: #163a41;
+  --sA: #d95926; --sB: #199e70; --haze: #c98500; --good: #0ca30c; --warn: #fab219; --crit: #e66767;
+  --view-bg: #111b21; --view-grid: #1d2a31; --view-grid-2: #2a3a43; --sil: #6f8590; --sil-fill: rgba(150, 175, 185, 0.14); --subject: #d07ab0;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.45 var(--font-body); }
+[hidden] { display: none !important; }
+button, input, select { font: inherit; color: inherit; }
+h1, h2, h3 { font-family: var(--font-display); margin: 0; text-wrap: balance; }
+a { color: var(--accent); }
+
+.app { min-height: 100%; display: grid; grid-template-columns: 300px minmax(0, 1fr) 370px; grid-template-rows: auto 1fr; gap: 10px; padding-block: 10px; padding-inline: 12px; }
+.top { grid-column: 1 / -1; display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding-inline: 4px; }
+.brand { display: flex; align-items: center; gap: 10px; }
+.brand .mark { width: 26px; height: 26px; border-radius: 50%; flex: none; background: radial-gradient(circle at 30% 50%, #fff 0 10%, transparent 12%), conic-gradient(from 60deg, var(--haze) 0 18%, transparent 18% 50%, var(--accent) 50% 100%); }
+.top h1 { font-size: 22px; font-weight: 700; }
+.tabs { display: flex; gap: 2px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 2px; }
+.tabs a { text-decoration: none; color: var(--ink-2); padding-block: 5px; padding-inline: 11px; border-radius: 6px; font-weight: 500; font-size: 13px; }
+.tabs a:hover { background: var(--panel-2); }
+.tabs a[aria-current="page"] { background: var(--accent); color: var(--accent-ink); }
+.tagline { margin: 0; color: var(--ink-2); font-size: 13px; flex: 1 1 280px; min-width: 0; }
+.top-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.btn { border: 1px solid var(--line); background: var(--panel); border-radius: var(--radius); padding-block: 6px; padding-inline: 11px; cursor: pointer; font-weight: 500; font-size: 13px; }
+.btn:hover { border-color: var(--accent); }
+.btn.small { padding-block: 3px; padding-inline: 8px; font-size: 12px; }
+.btn:focus-visible, input:focus-visible, select:focus-visible, button:focus-visible, summary:focus-visible, a:focus-visible, canvas:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.controls, .results { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; min-height: 0; min-width: 0; }
+.controls { padding-block: 4px 16px; padding-inline: 14px; align-self: start; }
+.group { padding-block: 12px; border-bottom: 1px solid var(--line); }
+.group:last-child { border-bottom: 0; }
+.group > h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink-2); margin-bottom: 8px; font-weight: 600; }
+.field { display: grid; grid-template-columns: minmax(0, 1fr); gap: 4px; margin-bottom: 9px; min-width: 0; }
+.field > label, .field > .lbl { font-size: 12.5px; color: var(--ink-2); display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+.field output { font-family: var(--font-mono); font-size: 12px; color: var(--ink); font-variant-numeric: tabular-nums; }
+select { width: 100%; min-width: 0; max-width: 100%; text-overflow: ellipsis; padding-block: 6px; padding-inline: 8px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel-2); }
+input[type="range"] { width: 100%; min-width: 0; accent-color: var(--accent); margin: 0; }
+.row2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; }
+.check { display: flex; align-items: center; gap: 8px; font-size: 13px; margin-bottom: 6px; }
+.hint { color: var(--muted); font-size: 12px; margin: 4px 0 0; }
+.readout { font-family: var(--font-mono); font-size: 11.5px; color: var(--ink-2); margin: 6px 0 0; }
+.strobe-card { border: 1px solid var(--line); border-radius: 8px; padding-block: 8px; padding-inline: 10px; margin-top: 8px; background: var(--panel-2); }
+.strobe-card header { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+.strobe-card h3 { font-size: 15px; display: flex; align-items: center; gap: 7px; }
+.strobe-card h3 i { width: 11px; height: 11px; border-radius: 50%; display: inline-block; }
+.strobe-card.off .body { opacity: 0.45; }
+.seg { display: flex; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+.seg button { flex: 1; border: 0; background: var(--panel-2); padding-block: 5px; cursor: pointer; font-size: 12.5px; color: var(--ink-2); }
+.seg button + button { border-left: 1px solid var(--line); }
+.seg button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); font-weight: 600; }
+
+.stage { min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; align-content: start; }
+.photo-card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 8px; display: grid; gap: 8px; }
+.photo-bar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.photo-bar .seg { flex: none; }
+.photo-bar .seg button { padding-inline: 10px; }
+.photo-bar select { width: auto; max-width: 100%; }
+.photo-bar .status { margin-left: auto; font-size: 12px; color: var(--muted); font-family: var(--font-mono); }
+.photo { position: relative; width: 100%; aspect-ratio: 3 / 2; max-width: 100%; background: #000; border-radius: 6px; overflow: hidden; }
+.photo canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.photo #gl { touch-action: none; }
+.photo .msg { position: absolute; inset: 0; display: grid; place-items: center; color: #fff; text-align: center; padding: 20px; font-size: 14px; }
+.evlegend { position: absolute; left: 8px; bottom: 8px; display: flex; gap: 0; font-size: 10.5px; font-family: var(--font-mono); border-radius: 4px; overflow: hidden; }
+.evlegend span { padding-block: 2px; padding-inline: 5px; color: #111; }
+.photo .tag { position: absolute; right: 8px; bottom: 8px; background: rgba(0, 0, 0, 0.55); color: #fff; font-size: 11.5px; border-radius: 4px; padding-block: 2px; padding-inline: 7px; pointer-events: none; }
+.views { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.view { margin: 0; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 8px; display: grid; gap: 6px; min-width: 0; }
+.view figcaption { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; font-size: 12.5px; color: var(--ink-2); flex-wrap: wrap; }
+.view figcaption b { font-family: var(--font-display); font-size: 15px; color: var(--ink); font-weight: 600; }
+.view canvas { width: 100%; aspect-ratio: 4 / 3; display: block; border-radius: 6px; background: var(--view-bg); touch-action: none; cursor: default; }
+.keys { display: flex; gap: 10px; flex-wrap: wrap; font-size: 11.5px; color: var(--ink-2); }
+.keys span { display: inline-flex; align-items: center; gap: 5px; }
+.keys i { width: 14px; height: 9px; border-radius: 2px; display: inline-block; }
+
+.results { padding-block: 10px 18px; padding-inline: 14px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; align-content: start; }
+.tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.tile { background: var(--panel-2); border-radius: 8px; padding-block: 8px 9px; padding-inline: 11px; min-width: 0; }
+.tile .k { font-size: 11.5px; color: var(--ink-2); }
+.tile .v { font-family: var(--font-display); font-size: 24px; font-weight: 600; line-height: 1.15; margin-top: 2px; display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 6px; }
+.tile .v .pill { font-family: var(--font-body); font-size: 11px; font-weight: 600; border-radius: 10px; padding-block: 1px; padding-inline: 7px; color: #fff; }
+.pill.good { background: var(--good); } .pill.warn { background: var(--warn); color: #1a1300; } .pill.crit { background: var(--crit); }
+.tile .s { font-size: 11.5px; color: var(--muted); margin-top: 2px; font-family: var(--font-mono); overflow-wrap: anywhere; }
+.block > h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink-2); margin-bottom: 8px; font-weight: 600; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+table.tv { border-collapse: collapse; width: 100%; font-size: 12.5px; font-variant-numeric: tabular-nums; }
+table.tv th, table.tv td { text-align: right; padding-block: 4px; padding-inline: 6px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+table.tv th { color: var(--ink-2); font-weight: 500; font-size: 11.5px; }
+table.tv td:first-child, table.tv th:first-child { text-align: left; }
+.tablewrap { overflow-x: auto; }
+ul.advice { margin: 0; padding: 0; list-style: none; display: grid; gap: 7px; }
+ul.advice li { display: flex; gap: 8px; font-size: 12.8px; line-height: 1.4; }
+ul.advice li::before { content: ""; width: 8px; height: 8px; border-radius: 50%; margin-top: 5px; flex: none; background: var(--good); }
+ul.advice li.warn::before { background: var(--warn); } ul.advice li.crit::before { background: var(--crit); } ul.advice li.info::before { background: var(--muted); }
+.snaps { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.snap { margin: 0; background: var(--panel-2); border-radius: 8px; overflow: hidden; font-size: 11.5px; }
+.snap img { width: 100%; display: block; aspect-ratio: 3 / 2; object-fit: cover; }
+.snap figcaption { padding-block: 5px 7px; padding-inline: 8px; color: var(--ink-2); font-family: var(--font-mono); line-height: 1.35; }
+.empty { color: var(--muted); font-size: 12.5px; margin: 0; }
+details.theory { border-top: 1px solid var(--line); padding-top: 10px; }
+details.theory summary { cursor: pointer; font-family: var(--font-display); font-size: 15.5px; font-weight: 600; }
+details.theory .body { font-size: 13px; color: var(--ink-2); max-width: 64ch; }
+details.theory .body p { margin: 8px 0; }
+details.theory .body h3 { font-size: 14.5px; color: var(--ink); margin-top: 12px; }
+details.theory .eq { font-family: var(--font-mono); font-size: 12.3px; background: var(--panel-2); border-radius: var(--radius); padding-block: 6px; padding-inline: 10px; margin: 6px 0; overflow-x: auto; color: var(--ink); white-space: pre; }
+details.theory ul, details.theory ol { padding-left: 18px; margin: 6px 0; }
+details.theory li { margin-bottom: 4px; }
+.toast { position: fixed; left: 50%; bottom: calc(18px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--ink); color: var(--bg); padding-block: 8px; padding-inline: 14px; border-radius: 20px; font-size: 13px; opacity: 0; transition: opacity .2s; pointer-events: none; }
+.toast.show { opacity: 1; }
+
+@media (max-width: 1260px) {
+  .app { grid-template-columns: 290px minmax(0, 1fr); }
+  .results { grid-column: 1 / -1; }
+  .tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (max-width: 820px) {
+  .app { grid-template-columns: minmax(0, 1fr); }
+  .stage { order: -1; grid-row: 2; }
+  .controls { grid-row: 3; }
+  .results { grid-row: 4; }
+  .views { grid-template-columns: minmax(0, 1fr); }
+  .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .top h1 { font-size: 19px; }
+}
+@media (prefers-reduced-motion: reduce) { .toast { transition: none; } }
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <div class="brand"><span class="mark" aria-hidden="true"></span><h1>Strobe Lighting Lab</h1></div>
+    <nav class="tabs" aria-label="Tools"><a href="index.html">Stereo rig planner</a><a href="strobes.html" aria-current="page">Strobe lighting lab</a></nav>
+    <p class="tagline">Place underwater strobes and see the photograph they make: beam cones, shadows, backscatter and colour loss, from clear tropical water to Plymouth Sound.</p>
+    <div class="top-actions"><button class="btn" id="btnSnap" type="button">Save snapshot</button><button class="btn" id="btnCopy" type="button">Copy settings</button></div>
+  </header>
+
+  <aside class="controls" aria-label="Settings">
+    <section class="group">
+      <h2>Equipment</h2>
+      <div class="field"><label for="kit">Kit</label><select id="kit"></select></div>
+      <div class="field"><label for="lens">Lens and port</label><select id="lens"></select></div>
+      <div class="field"><label for="N"><span>Aperture</span><output id="NOut"></output></label><input type="range" id="N" min="0" max="10" step="1" value="5"></div>
+      <div class="row2">
+        <div class="field"><label for="shutter">Shutter</label><select id="shutter"><option value="30">1/30 s</option><option value="60">1/60 s</option><option value="125" selected>1/125 s</option><option value="200">1/200 s</option><option value="250">1/250 s</option><option value="500">1/500 s</option><option value="1000">1/1000 s</option></select></div>
+        <div class="field"><label for="iso">ISO</label><select id="iso"><option>100</option><option selected>200</option><option>400</option><option>800</option><option>1600</option></select></div>
+      </div>
+      <p class="readout" id="lensReadout"></p>
+    </section>
+
+    <section class="group">
+      <h2>Strobes</h2>
+      <div class="field"><label for="placement">Placement</label><select id="placement"></select></div>
+      <label class="check"><input type="checkbox" id="ttl" checked> Auto power (TTL-like: subject correctly exposed)</label>
+      <label class="check"><input type="checkbox" id="aimLock" checked> Keep each strobe’s aim on the subject while moving it</label>
+      <div class="field"><label for="arms">Arms (each side)</label><select id="arms"><option value="0.127,0.203">5 in + 8 in (13 + 20 cm)</option><option value="0.203,0.203">8 in + 8 in (20 + 20 cm)</option><option value="0.203,0.254">8 in + 10 in (20 + 25 cm)</option><option value="0.254,0.305">10 in + 12 in (25 + 30 cm)</option><option value="0.305,0.305">12 in + 12 in (30 + 30 cm)</option></select></div>
+      <div id="strobeCards"></div>
+    </section>
+
+    <section class="group">
+      <h2>Subject</h2>
+      <div class="field"><label for="scene">Scene</label><select id="scene"></select></div>
+      <div class="field"><label for="Z"><span>Distance, port to subject</span><output id="ZOut"></output></label><input type="range" id="Z" min="0.05" max="3" step="0.01" value="1"></div>
+      <div class="field"><label for="tilt"><span>Camera tilt (− looks down)</span><output id="tiltOut"></output></label><input type="range" id="tilt" min="-45" max="25" step="1" value="-4"></div>
+      <p class="hint" id="sceneNote"></p>
+    </section>
+
+    <section class="group">
+      <h2>Water</h2>
+      <div class="field"><label for="water">Water type</label><select id="water"></select></div>
+      <div class="field"><label for="vis"><span>Horizontal visibility</span><output id="visOut"></output></label><input type="range" id="vis" min="0" max="100" step="1" value="50"></div>
+      <div class="field"><label for="specks"><span>Suspended particles (specks per litre)</span><output id="specksOut"></output></label><input type="range" id="specks" min="0" max="100" step="1" value="40"></div>
+      <div class="row2">
+        <div class="field"><label for="depth"><span>Depth</span><output id="depthOut"></output></label><input type="range" id="depth" min="0" max="40" step="1" value="10"></div>
+        <div class="field"><label for="sky">Daylight</label><select id="sky"></select></div>
+      </div>
+      <p class="readout" id="waterReadout"></p>
+    </section>
+
+    <section class="group">
+      <h2>Display</h2>
+      <div class="field"><span class="lbl">Render quality</span><div class="seg" role="group" aria-label="Render quality"><button type="button" data-q="draft" aria-pressed="false">Fast</button><button type="button" data-q="high" aria-pressed="true">Detailed</button></div></div>
+      <label class="check"><input type="checkbox" id="volShadows" checked> Shadows inside the water (light shafts)</label>
+      <div class="field"><label for="boost">Beams in the observer view</label><select id="boost"><option value="1">True to physics (glare toward the light)</option><option value="5" selected>Show the beam shape</option><option value="20">Show the beam shape, strong</option></select></div>
+    </section>
+  </aside>
+
+  <main class="stage">
+    <div class="photo-card">
+      <div class="photo-bar">
+        <div class="seg" role="group" aria-label="Viewpoint"><button type="button" data-view="camera" aria-pressed="true">Camera view</button><button type="button" data-view="observer" aria-pressed="false">Observer view</button></div>
+        <select id="mode" aria-label="What to show"><option value="photo">Photograph</option><option value="backscatter">Backscatter only</option><option value="strobe">Strobe light only (no daylight)</option><option value="air">Same scene in air</option><option value="exposure">Exposure map</option></select>
+        <span class="status" id="status"></span>
+      </div>
+      <div class="photo" id="photo">
+        <canvas id="gl" aria-label="Simulated photograph from the camera"></canvas>
+        <canvas id="ov" aria-hidden="true"></canvas>
+        <div class="evlegend" id="evLegend" hidden><span style="background:#0d0d59;color:#fff">&lt;−3</span><span style="background:#1a40d9;color:#fff">−2</span><span style="background:#26a6f2">−1</span><span style="background:#59bf73">−½</span><span style="background:#8c8c8c">0 EV</span><span style="background:#f2d940">+½</span><span style="background:#fa8c26">+1</span><span style="background:#e62626;color:#fff">+2</span><span style="background:#f24de6">+3</span></div>
+        <div class="tag" id="photoTag"></div>
+        <div class="msg" id="glMsg" hidden></div>
+      </div>
+    </div>
+    <div class="views">
+      <figure class="view">
+        <figcaption><b>Top view</b><span>Drag a strobe to move it; drag its dot to aim it</span></figcaption>
+        <canvas id="top" tabindex="0" aria-label="Top view of the rig, strobe beams and backscatter zone; drag strobes to move or aim them"></canvas>
+        <div class="keys"><span><i style="background:var(--sA)"></i>Strobe A beam</span><span><i style="background:var(--sB)"></i>Strobe B beam</span><span><i style="background:linear-gradient(90deg, transparent, var(--haze))"></i>Where backscatter comes from</span></div>
+      </figure>
+      <figure class="view">
+        <figcaption><b>Side view</b><span>Height and tilt; the seabed is grey</span></figcaption>
+        <canvas id="side" tabindex="0" aria-label="Side view of the rig, strobe beams and backscatter zone; drag strobes to move or aim them"></canvas>
+        <div class="keys"><span>Dashed lines: beam half-power edge</span><span>Thin lines: camera field of view</span></div>
+      </figure>
+    </div>
+  </main>
+
+  <section class="results" aria-label="Results">
+    <div class="tiles" id="tiles"></div>
+    <div class="block"><h2>Strobes on the subject</h2><div class="tablewrap" id="strobeTable"></div></div>
+    <div class="block"><h2>What to change</h2><ul class="advice" id="advice"></ul></div>
+    <div class="block"><h2>Snapshots <button class="btn small" type="button" id="btnClear">Clear</button></h2><div class="snaps" id="snaps"><p class="empty">Save snapshots to compare strobe positions side by side.</p></div></div>
+
+    <details class="theory">
+      <summary>How to use the lab</summary>
+      <div class="body">
+        <ol>
+          <li>Pick the kit, the scene and the water. The photograph is the camera’s view, rendered from the physics; it updates as you change anything.</li>
+          <li>Drag the coloured strobe heads in the top and side views. The small dot in front of each head aims it. With “Keep aim” on, a strobe keeps pointing at the subject (plus any angle you add) as you move it.</li>
+          <li>The amber cloud in the diagrams shows where the light that reaches the lens as backscatter is scattered: it lives where the beams overlap the camera’s field of view. Shrink it and the haze and specks in the photograph go away.</li>
+          <li>Switch the photograph to “Backscatter only” to see just the light scattered by the water, “Same scene in air” to see coverage and shadows without water, or “Exposure map” to read brightness in stops.</li>
+          <li>The observer view shows the rig from outside, with the beams made visible by the water. Drag on it to walk around.</li>
+          <li>Save snapshots to compare placements; the numbers on the right explain each result.</li>
+        </ol>
+      </div>
+    </details>
+    <details class="theory">
+      <summary>Why backscatter happens</summary>
+      <div class="body" id="whyBody"></div>
+    </details>
+    <details class="theory">
+      <summary>Positioning rules, and the physics behind them</summary>
+      <div class="body" id="rulesBody"></div>
+    </details>
+    <details class="theory">
+      <summary>Your strobes: INON Z-330 and S-2000</summary>
+      <div class="body" id="strobeBody"></div>
+    </details>
+    <details class="theory">
+      <summary>How the simulator works</summary>
+      <div class="body" id="modelBody"></div>
+    </details>
+    <details class="theory">
+      <summary>Exercises for the practical</summary>
+      <div class="body" id="exBody"></div>
+    </details>
+    <details class="theory">
+      <summary>References</summary>
+      <div class="body" id="refBody"></div>
+    </details>
+  </section>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script src="strobe-physics.js"></script>
+<script src="strobe-render.js"></script>
+<script src="strobe-content.js"></script>
+<script>
+(function () {
+  'use strict';
+  var S = window.StrobeSim;
+  var $ = function (id) { return document.getElementById(id); };
+  var DEG = S.DEG, RAD = S.RAD, clamp = S.clamp;
+  var N_STOPS = [1.8, 2, 2.8, 4, 5.6, 8, 11, 16, 22, 32];
+
+  /* ---------------- state ---------------- */
+  var state = {
+    kit: 'big', lens: 'ff16', N: 8, shutter: 1 / 125, iso: 200, focus: 'auto',
+    scene: 'wall', Z: 1.0, tilt: -4,
+    water: 'plymouth', visibility: 5.0, specks: 1.5, depth: 10, sky: 'sun',
+    arms: [0.203, 0.254], placement: 'aimed',
+    strobes: [
+      { on: true, model: 'z330', offset: 0, pos: [-0.3, 0.13, -0.03], yaw: 15, pitch: -6 },
+      { on: true, model: 'z330', offset: 0, pos: [0.3, 0.13, -0.03], yaw: -15, pitch: -6 }
+    ],
+    ttl: true, aimLock: true,
+    view: 'camera', mode: 'photo', quality: 'high', volShadows: true, boost: 5,
+    obs: { az: -64, el: 24 }
+  };
+  var ttlShift = -4;
+  var lastWorld = null, lastMetrics = null;
+
+  function kitObj() { var k = S.kitById(state.kit), o = {}; for (var key in k) o[key] = k[key]; o.arms = state.arms.slice(); return o; }
+  function model(i) { return S.strobeModel(state.strobes[i].model); }
+  function minPower(i) { return S.strobeModel(state.strobes[i].model).minEV; }
+  // In S-TTL the strobe quenches its flash below the lowest manual step; the lab allows 2.5 EV more (assumption, not published by INON)
+  function powerOf(i) { var s = state.strobes[i]; return clamp(state.ttl ? s.offset + ttlShift : s.offset, minPower(i) - (state.ttl ? 2.5 : 0), 0); }
+  function effectiveState() {
+    var es = {}; for (var k in state) es[k] = state[k];
+    es.strobes = state.strobes.map(function (s, i) { return { on: s.on, model: s.model, power: powerOf(i), pos: s.pos.slice(), yaw: s.yaw, pitch: s.pitch, arms: state.arms }; });
+    return es;
+  }
+  function anyStrobe() { return state.strobes.some(function (s) { return s.on; }); }
+
+  /* ---------------- formatting ---------------- */
+  function fmtLen(m) { if (!isFinite(m)) return '–'; var a = Math.abs(m); return a < 1 ? (m * 100).toFixed(a < 0.1 ? 1 : 0) + ' cm' : m.toFixed(2) + ' m'; }
+  function fmtEV(x) { if (!isFinite(x)) return '–'; var s = Math.abs(x) < 0.05 ? '0.0' : (x > 0 ? '+' : '−') + Math.abs(x).toFixed(1); return s + ' EV'; }
+  function fmtN(N) { return 'f/' + (N < 10 ? N.toFixed(1).replace(/\.0$/, '') : N.toFixed(0)); }
+  function pct(x) { return isFinite(x) ? (x * 100 < 10 ? (x * 100).toFixed(1) : (x * 100).toFixed(0)) + ' %' : '–'; }
+  function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  function css(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+
+  /* ---------------- WebGL renderer ---------------- */
+  var glCanvas = $('gl'), ov = $('ov'), renderer = null;
+  try { renderer = new window.StrobeRenderer(glCanvas); }
+  catch (e) { $('glMsg').hidden = false; $('glMsg').textContent = 'The photograph needs WebGL 2, which this browser did not provide (' + e.message + '). The diagrams and numbers still work.'; console.error(e); }
+
+  function sizeCanvas(scale) {
+    var r = $('photo').getBoundingClientRect();
+    var dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+    var W = Math.max(240, Math.round(r.width * dpr * scale)), H = Math.round(W * 2 / 3);
+    if (W > 1500) { W = 1500; H = 1000; }
+    if (glCanvas.width !== W || glCanvas.height !== H) { glCanvas.width = W; glCanvas.height = H; }
+    return W;
+  }
+  function observerCam(world, W) {
+    var Z = world.Z, T = S.rigToWorld(world.tilt, [0, 0.0, Z * 0.5 - 0.05]);
+    var dist = 0.75 + 1.45 * Z + (state.kit === 'big' ? 0.35 : 0.15);
+    var az = state.obs.az * DEG, el = state.obs.el * DEG;
+    var pos = [T[0] + dist * Math.cos(el) * Math.sin(az), T[1] + dist * Math.sin(el), T[2] - dist * Math.cos(el) * Math.cos(az)];
+    var fwd = S.norm(S.sub(T, pos)), right = S.norm(S.cross([0, 1, 0], fwd)), up = S.cross(fwd, right);
+    return { pos: pos, rot: [right, up, fwd], fpx: (W / 2) / Math.tan(27 * DEG), focus: dist, target: T };
+  }
+  var seed = 7;
+  function renderPhoto(quality) {
+    var W = sizeCanvas(quality === 'draft' ? 0.5 : 1);
+    var world = S.buildWorld(effectiveState(), W);
+    lastWorld = world;
+    if (!renderer) return world;
+    var t0 = performance.now();
+    var ob = state.view === 'observer' ? observerCam(world, W) : null;
+    // the observer looks through more water than the camera: compensate most of that loss so the scene stays readable
+    var evShift = ob ? 0.6 * world.water.c[1] * ob.focus / Math.LN2 : 0;
+    renderer.render(world, { view: state.view, mode: state.mode, quality: quality, observer: ob, boost: state.boost, seed: seed, volShadows: state.volShadows, evShift: evShift });
+    drawOverlay(world, ob, W);
+    var dt = performance.now() - t0;
+    $('status').textContent = (quality === 'draft' ? 'fast preview' : 'detailed') + ' · ' + glCanvas.width + '×' + glCanvas.height;
+    $('evLegend').hidden = state.mode !== 'exposure';
+    var tag = state.view === 'observer' ? 'Observer view · drag to walk around' + (state.boost > 1 ? ' · beam shape shown' : ' · true scattering') + ' · +' + evShift.toFixed(1) + ' EV' : fmtN(state.N) + ' · 1/' + Math.round(1 / state.shutter) + ' s · ISO ' + state.iso;
+    $('photoTag').textContent = tag;
+    return world;
+  }
+
+  /* overlay: camera frustum and beam axes in the observer view */
+  function drawOverlay(world, ob, W) {
+    var r = $('photo').getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+    ov.width = Math.round(r.width * dpr); ov.height = Math.round(r.height * dpr);
+    var g = ov.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, r.width, r.height);
+    if (!ob) return;
+    var k = r.width / W;
+    function P(p) { var d = S.sub(p, ob.pos); var x = S.dot(d, ob.rot[0]), y = S.dot(d, ob.rot[1]), z = S.dot(d, ob.rot[2]); if (z < 0.02) return null; return [r.width / 2 + ob.fpx * k * x / z, r.height / 2 - ob.fpx * k * y / z]; }
+    function line(a, b, col, dash, w) { var A = P(a), B = P(b); if (!A || !B) return; g.strokeStyle = col; g.lineWidth = w || 1.2; g.setLineDash(dash || []); g.beginPath(); g.moveTo(A[0], A[1]); g.lineTo(B[0], B[1]); g.stroke(); }
+    var cam = world.cam, far = world.Z, edges = [];
+    var corners = [[-1, -1], [1, -1], [1, 1], [-1, 1]];
+    for (var e = 0; e < 4; e++) {
+      var a = corners[e], b = corners[(e + 1) % 4], seg = [];
+      for (var i = 0; i <= 12; i++) {
+        var t = i / 12, px = (a[0] + (b[0] - a[0]) * t) * cam.W / 2, py = (a[1] + (b[1] - a[1]) * t) * cam.H / 2;
+        var ray = S.cameraRay(world, px, py); if (!ray) continue;
+        seg.push(S.add(ray.o, S.mul(ray.d, far)));
+        if (i === 0) line(ray.o, S.add(ray.o, S.mul(ray.d, far)), 'rgba(255,255,255,0.55)', [5, 4]);
+      }
+      edges.push(seg);
+    }
+    g.setLineDash([]); g.strokeStyle = 'rgba(255,255,255,0.55)'; g.lineWidth = 1.1;
+    edges.forEach(function (seg) { g.beginPath(); var started = false; seg.forEach(function (p) { var s = P(p); if (!s) return; if (!started) { g.moveTo(s[0], s[1]); started = true; } else g.lineTo(s[0], s[1]); }); g.stroke(); });
+    var lab = P(S.rigToWorld(world.tilt, [0, cam.vfov > 0 ? Math.tan(cam.vfov / 2 * DEG) * far * 0.9 : 0.2, far]));
+    if (lab) { g.font = '600 12px "IBM Plex Sans", system-ui'; g.fillStyle = 'rgba(255,255,255,0.9)'; g.fillText('camera field of view', lab[0] + 6, lab[1] - 6); }
+    world.strobes.forEach(function (s) {
+      var col = s.side < 0 ? css('--sA') : css('--sB');
+      // half-power cone: rings and four edge lines
+      var Lc = Math.max(0.3, world.Z * 0.85), tx = Math.tan(s.thx), ty = Math.tan(s.thy);
+      [0.35, 0.7, 1].forEach(function (f) {
+        var d = Lc * f, c0 = S.add(s.pos, S.mul(s.ax, d)), pts = [];
+        for (var k = 0; k <= 48; k++) { var a = k / 48 * 2 * Math.PI; pts.push(P(S.add(c0, S.add(S.mul(s.rt, Math.cos(a) * d * tx), S.mul(s.up, Math.sin(a) * d * ty))))); }
+        g.strokeStyle = hexA(col, f === 1 ? 0.85 : 0.5); g.lineWidth = f === 1 ? 1.6 : 1; g.setLineDash([]); g.beginPath();
+        var on = false; pts.forEach(function (q) { if (!q) { on = false; return; } if (!on) { g.moveTo(q[0], q[1]); on = true; } else g.lineTo(q[0], q[1]); }); g.stroke();
+      });
+      [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(function (k) {
+        var e = S.add(s.pos, S.add(S.mul(s.ax, Lc), S.add(S.mul(s.rt, k[0] * Lc * tx), S.mul(s.up, k[1] * Lc * ty))));
+        line(s.pos, e, hexA(col, 0.7), [4, 4], 1.2);
+      });
+      line(s.pos, S.add(s.pos, S.mul(s.ax, Lc)), col, [], 2);
+      var q = P(s.pos); if (q) { g.fillStyle = col; g.font = '700 13px "IBM Plex Sans", system-ui'; g.fillText(s.side < 0 ? 'A' : 'B', q[0] + 8, q[1] - 8); }
+    });
+  }
+
+  /* ---------------- TTL-like automatic power ---------------- */
+  function quickTTL() {
+    if (!state.ttl || !anyStrobe()) return;
+    for (var it = 0; it < 4; it++) {
+      var w = S.buildWorld(effectiveState(), 240);
+      var m = S.computeMetrics(w, { nx: 24, soft: 2, steps: 12, speckSamples: 0 });
+      if (!isFinite(m.autoK)) break;
+      if (m.autoK <= 0) { ttlShift = -9; break; }
+      var step = Math.log2(m.autoK);
+      ttlShift = clamp(ttlShift + step, -9, 3);
+      if (Math.abs(step) < 0.05) break;
+    }
+  }
+
+  /* ---------------- scheduling ---------------- */
+  var rafId = 0, finalTimer = 0;
+  function update(interactive) {
+    syncControls();
+    if (interactive) {
+      if (!rafId) rafId = requestAnimationFrame(function () { rafId = 0; quickTTL(); renderPhoto('draft'); drawViews(true); });
+      clearTimeout(finalTimer); finalTimer = setTimeout(finalRender, 260);
+    } else {
+      clearTimeout(finalTimer); finalTimer = setTimeout(finalRender, 10);
+    }
+  }
+  function finalRender() {
+    quickTTL();
+    renderPhoto(state.quality);
+    drawViews(false);
+    syncControls();
+    computeResults();
+  }
+
+  /* ---------------- 2-D rig diagrams ---------------- */
+  var views = { top: { canvas: $('top') }, side: { canvas: $('side') } };
+  function rigPoint(world, p) { return S.worldToRig(world.tilt, p); }
+  function setupView(kind, world) {
+    var v = views[kind], c = v.canvas, dpr = window.devicePixelRatio || 1;
+    var cw = c.clientWidth || 400, ch = c.clientHeight || 300;
+    if (c.width !== Math.round(cw * dpr) || c.height !== Math.round(ch * dpr)) { c.width = Math.round(cw * dpr); c.height = Math.round(ch * dpr); }
+    var g = c.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    var kit = world.kit, Z = world.Z, size = world.scene.size;
+    var zb = kit.housing.front - kit.housing.d - 0.06, zf = Math.max(Z + size * 0.85, 0.3);
+    var sx = 0, sy = 0, syMin = 0;
+    state.strobes.forEach(function (s) { sx = Math.max(sx, Math.abs(s.pos[0])); sy = Math.max(sy, s.pos[1]); syMin = Math.min(syMin, s.pos[1]); zf = Math.max(zf, s.pos[2] + 0.12); zb = Math.min(zb, s.pos[2] - 0.15); });
+    var pad = 18, u0, u1, v0, v1;
+    if (kind === 'top') {
+      var xr = Math.max(0.22, sx + 0.14, kit.tray.x + 0.12, size * 0.9, Math.min(Z * Math.tan(Math.min(world.cam.hfov, 120) / 2 * DEG), Z * 1.4) + 0.05);
+      u0 = -xr; u1 = xr; v0 = zb; v1 = zf;
+    } else {
+      var yl = Math.min(-0.2, syMin - 0.1, -size * 0.75), yh = Math.max(0.22, sy + 0.12, size * 0.75);
+      u0 = zb; u1 = zf; v0 = yl; v1 = yh;
+    }
+    var s = Math.min((cw - 2 * pad) / (u1 - u0), (ch - 2 * pad) / (v1 - v0));
+    // expand the ranges to fill the canvas at that scale
+    var du = ((cw - 2 * pad) / s - (u1 - u0)) / 2, dv = ((ch - 2 * pad) / s - (v1 - v0)) / 2;
+    u0 -= du; u1 += du; v0 -= dv; v1 += dv;
+    v.g = g; v.cw = cw; v.ch = ch; v.s = s; v.u0 = u0; v.u1 = u1; v.v0 = v0; v.v1 = v1; v.kind = kind; v.pad = pad;
+    v.X = function (u) { return pad + (u - u0) * s; };
+    v.Y = function (w) { return ch - pad - (w - v0) * s; };
+    v.U = function (x) { return u0 + (x - pad) / s; };
+    v.V = function (y) { return v0 + (ch - pad - y) / s; };
+    v.proj = kind === 'top' ? function (p) { return [p[0], p[2]]; } : function (p) { return [p[2], p[1]]; };
+    v.scr = function (p) { var q = v.proj(p); return [v.X(q[0]), v.Y(q[1])]; };
+    return v;
+  }
+  function niceStep(px) { var steps = [0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1]; for (var i = 0; i < steps.length; i++) if (steps[i] * px >= 34) return steps[i]; return 1; }
+  var MAJOR = { 0.01: 0.05, 0.02: 0.1, 0.05: 0.5, 0.1: 0.5, 0.2: 1, 0.5: 1, 1: 5 };
+  function hexA(hex, a) { var h = hex.replace('#', ''); if (h.length === 3) h = h.split('').map(function (c) { return c + c; }).join(''); var n = parseInt(h, 16); return 'rgba(' + ((n >> 16) & 255) + ',' + ((n >> 8) & 255) + ',' + (n & 255) + ',' + a + ')'; }
+
+  function drawGrid(v) {
+    var g = v.g, step = niceStep(v.s), big = MAJOR[step] || step * 5;
+    g.fillStyle = css('--view-bg'); g.fillRect(0, 0, v.cw, v.ch);
+    g.lineWidth = 1;
+    for (var pass = 0; pass < 2; pass++) {
+      var st = pass ? big : step; g.strokeStyle = pass ? css('--view-grid-2') : css('--view-grid');
+      g.beginPath();
+      for (var u = Math.ceil(v.u0 / st) * st; u <= v.u1; u += st) { var x = Math.round(v.X(u)) + 0.5; g.moveTo(x, 0); g.lineTo(x, v.ch); }
+      for (var w = Math.ceil(v.v0 / st) * st; w <= v.v1; w += st) { var y = Math.round(v.Y(w)) + 0.5; g.moveTo(0, y); g.lineTo(v.cw, y); }
+      g.stroke();
+    }
+    g.fillStyle = css('--muted'); g.font = '10.5px "IBM Plex Mono", monospace';
+    g.fillText('grid ' + fmtLen(step) + ' · major ' + fmtLen(big), 8, v.ch - 7);
+  }
+
+  var fieldCache = {};
+  function drawHeat(v, world, res) {
+    if (!world.strobes.length || state.mode === 'air') return;
+    var nx = res, ny = Math.max(8, Math.round(res * v.ch / v.cw));
+    var bounds = { u0: v.u0, u1: v.u1, v0: v.v0, v1: v.v1 };
+    var F = S.backscatterField(world, v.kind, bounds, nx, ny);
+    // reference: luminance of a 50 % grey subject facing the strobes at the anchor, spread over 0.3 m of path
+    var ref = 0;
+    world.strobes.forEach(function (s) { var ir = S.strobeIrradiance(world, s, world.anchor, world.water.c); ref += 0.5 / Math.PI * ir.E[1] * Math.exp(-world.water.c[1] * world.Z); });
+    ref = Math.max(ref / 0.3, 1e-9);
+    var img = new ImageData(nx, ny), col = css('--haze'), h = col.replace('#', ''), n = parseInt(h.length === 3 ? h.split('').map(function (c) { return c + c; }).join('') : h, 16);
+    var r0 = (n >> 16) & 255, g0 = (n >> 8) & 255, b0 = n & 255;
+    for (var j = 0; j < ny; j++) for (var i = 0; i < nx; i++) {
+      var val = F[(ny - 1 - j) * nx + i]; if (!(val > 0)) continue;
+      var lg = Math.log10(val / ref), a = clamp((lg + 2.6) / 2.6, 0, 1); if (a <= 0) continue;
+      var hot = clamp(lg + 0.3, 0, 1), o = (j * nx + i) * 4;
+      img.data[o] = r0 + (255 - r0) * hot * 0.8; img.data[o + 1] = g0 + (245 - g0) * hot * 0.8; img.data[o + 2] = b0 + (210 - b0) * hot * 0.8;
+      img.data[o + 3] = Math.round(255 * Math.pow(a, 1.25) * 0.9);
+    }
+    var key = v.kind; var off = fieldCache[key] || (fieldCache[key] = document.createElement('canvas'));
+    off.width = nx; off.height = ny; off.getContext('2d').putImageData(img, 0, 0);
+    v.g.imageSmoothingEnabled = true;
+    v.g.drawImage(off, v.X(v.u0), v.Y(v.v1), v.X(v.u1) - v.X(v.u0), v.Y(v.v0) - v.Y(v.v1));
+  }
+
+  function primRig(world, p) {
+    var t = world.tilt, q = { t: p.t, m: p.m, f: p.f, r: p.r, w: p.w };
+    q.c = S.worldToRig(t, p.c);
+    if (p.t === S.T.CYL) q.v = S.worldToRig(t, p.v); else if (p.t === S.T.PLANE) q.v = S.worldToRig(t, p.v); else q.v = p.v.slice();
+    q.R = p.R.map(function (row) { return S.worldToRig(t, row); });
+    return q;
+  }
+  function ellipseFrom(v, vecs) {
+    // screen-space 2x2 covariance of projected semi-axes -> ellipse
+    var a = 0, b = 0, d = 0;
+    vecs.forEach(function (w) { var q = v.proj(w); var x = q[0] * v.s, y = -q[1] * v.s; a += x * x; b += x * y; d += y * y; });
+    var tr = a + d, det = a * d - b * b, disc = Math.sqrt(Math.max(0, tr * tr / 4 - det));
+    var l1 = tr / 2 + disc, l2 = Math.max(0, tr / 2 - disc), ang = Math.abs(b) < 1e-12 ? (a >= d ? 0 : Math.PI / 2) : Math.atan2(l1 - a, b);
+    return { r1: Math.sqrt(l1), r2: Math.sqrt(l2), ang: ang };
+  }
+  function clipHalf(poly, n, dval) {
+    var out = [];
+    for (var i = 0; i < poly.length; i++) {
+      var P = poly[i], Q = poly[(i + 1) % poly.length];
+      var fp = n[0] * P[0] + n[1] * P[1] - dval, fq = n[0] * Q[0] + n[1] * Q[1] - dval;
+      if (fp <= 0) out.push(P);
+      if ((fp < 0) !== (fq < 0)) { var t = fp / (fp - fq); out.push([P[0] + (Q[0] - P[0]) * t, P[1] + (Q[1] - P[1]) * t]); }
+    }
+    return out;
+  }
+  function drawScene(v, world) {
+    var g = v.g, silC = css('--sil'), fill = css('--sil-fill'), subj = css('--subject');
+    world.prims.forEach(function (p0) {
+      var p = primRig(world, p0), isSubj = (p.f & S.F.SUBJECT) !== 0;
+      g.strokeStyle = isSubj ? subj : silC; g.fillStyle = isSubj ? hexA(subj, 0.22) : fill; g.lineWidth = isSubj ? 1.6 : 1.2; g.setLineDash([]);
+      if (p.t === S.T.PLANE) {
+        // half-space behind the plane, clipped to the view
+        var n2 = v.proj(p.v), nl = Math.hypot(n2[0], n2[1]); if (nl < 1e-3) return;
+        // plane in rig frame: n·x = w ; restricted to the view plane (other coordinate = 0)
+        var rect = [[v.u0, v.v0], [v.u1, v.v0], [v.u1, v.v1], [v.u0, v.v1]];
+        var poly = clipHalf(rect, [-n2[0], -n2[1]], -p.w).length ? clipHalf(rect, [n2[0], n2[1]], p.w) : [];
+        poly = clipHalf(rect, [n2[0], n2[1]], p.w);
+        if (poly.length < 3) return;
+        g.beginPath(); poly.forEach(function (q, i) { var x = v.X(q[0]), y = v.Y(q[1]); if (i) g.lineTo(x, y); else g.moveTo(x, y); }); g.closePath();
+        g.fillStyle = hexA(silC, 0.18); g.fill();
+        // the surface line
+        var pts = [];
+        for (var i = 0; i < poly.length; i++) { var q = poly[i]; if (Math.abs(n2[0] * q[0] + n2[1] * q[1] - p.w) < 1e-6) pts.push(q); }
+        if (pts.length >= 2) { g.strokeStyle = silC; g.lineWidth = 2; g.beginPath(); g.moveTo(v.X(pts[0][0]), v.Y(pts[0][1])); g.lineTo(v.X(pts[pts.length - 1][0]), v.Y(pts[pts.length - 1][1])); g.stroke(); }
+        return;
+      }
+      if (p.t === S.T.SPHERE) { var c = v.scr(p.c); g.beginPath(); g.arc(c[0], c[1], p.r * v.s, 0, Math.PI * 2); g.fill(); g.stroke(); return; }
+      if (p.t === S.T.ELLIPSOID || p.t === S.T.DISK) {
+        var vecs = p.t === S.T.ELLIPSOID ? [S.mul(p.R[0], p.v[0]), S.mul(p.R[1], p.v[1]), S.mul(p.R[2], p.v[2])] : [S.mul(p.R[0], p.r), S.mul(p.R[1], p.r)];
+        var e = ellipseFrom(v, vecs), c2 = v.scr(p.c);
+        g.beginPath(); g.ellipse(c2[0], c2[1], Math.max(e.r1, 1), Math.max(e.r2, 1), e.ang, 0, Math.PI * 2); g.fill(); g.stroke();
+        return;
+      }
+      if (p.t === S.T.CYL) {
+        var a = v.scr(p.c), b = v.scr(p.v);
+        g.lineCap = 'round'; g.strokeStyle = isSubj ? hexA(subj, 0.5) : hexA(silC, 0.55); g.lineWidth = Math.max(2, 2 * p.r * v.s);
+        g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.stroke(); g.lineCap = 'butt';
+        return;
+      }
+      if (p.t === S.T.BOX) {
+        var pts2 = [];
+        for (var k = 0; k < 8; k++) {
+          var l = [(k & 1 ? 1 : -1) * p.v[0], (k & 2 ? 1 : -1) * p.v[1], (k & 4 ? 1 : -1) * p.v[2]];
+          var wv = S.add(p.c, S.add(S.add(S.mul(p.R[0], l[0]), S.mul(p.R[1], l[1])), S.mul(p.R[2], l[2])));
+          pts2.push(v.scr(wv));
+        }
+        var hull = convexHull(pts2);
+        g.beginPath(); hull.forEach(function (q, i) { if (i) g.lineTo(q[0], q[1]); else g.moveTo(q[0], q[1]); }); g.closePath(); g.fill(); g.stroke();
+      }
+    });
+  }
+  function convexHull(P) {
+    P = P.slice().sort(function (a, b) { return a[0] - b[0] || a[1] - b[1]; });
+    function cr(o, a, b) { return (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]); }
+    var lo = [], up = [];
+    P.forEach(function (p) { while (lo.length >= 2 && cr(lo[lo.length - 2], lo[lo.length - 1], p) <= 0) lo.pop(); lo.push(p); });
+    for (var i = P.length - 1; i >= 0; i--) { var p = P[i]; while (up.length >= 2 && cr(up[up.length - 2], up[up.length - 1], p) <= 0) up.pop(); up.push(p); }
+    up.pop(); lo.pop(); return lo.concat(up);
+  }
+  function drawFOV(v, world) {
+    var g = v.g, cam = world.cam, ink = css('--ink-2');
+    var L = Math.max(world.Z * 2.5, 1.5);
+    g.strokeStyle = hexA(ink, 0.55); g.lineWidth = 1; g.setLineDash([]);
+    [-1, 1].forEach(function (sgn) {
+      var px = v.kind === 'top' ? sgn * cam.W / 2 : 0, py = v.kind === 'top' ? 0 : sgn * cam.H / 2;
+      var r = S.cameraRayRig(cam, px, py, world.n); if (!r) return;
+      var a = v.scr(r.o), b = v.scr(S.add(r.o, S.mul(r.d, L)));
+      g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.stroke();
+    });
+    // lens axis and subject distance
+    var a0 = v.scr([0, 0, 0]), a1 = v.scr([0, 0, world.Z]);
+    g.setLineDash([3, 4]); g.strokeStyle = hexA(ink, 0.6); g.beginPath(); g.moveTo(a0[0], a0[1]); g.lineTo(a1[0], a1[1]); g.stroke(); g.setLineDash([]);
+    g.fillStyle = css('--ink'); g.beginPath(); g.arc(a1[0], a1[1], 3, 0, Math.PI * 2); g.fill();
+    g.font = '600 11.5px "IBM Plex Sans", system-ui'; g.fillStyle = css('--ink-2');
+    var lx = v.kind === 'top' ? a1[0] + 8 : a1[0] - 4, ly = v.kind === 'top' ? (a0[1] + a1[1]) / 2 : a1[1] - 10;
+    g.fillText(fmtLen(world.Z), lx, ly);
+  }
+  function beamFan(v, world, s, col) {
+    var g = v.g, m = s.model;
+    var p = v.scr(s.posRig), a2 = v.proj(s.axRig), al = Math.hypot(a2[0], a2[1]);
+    if (al < 0.15) return;
+    var ang = Math.atan2(-a2[1], a2[0]);
+    var half = (v.kind === 'top' ? m.beamH : m.beamV) / 2 * DEG;
+    var tenth = S.beamAngleAt(v.kind === 'top' ? m : { beamH: m.beamV, p: m.p }, 0.1) * DEG;
+    tenth = Math.min(tenth, m.cut * DEG);
+    var R = Math.hypot(v.cw, v.ch);
+    var grad = g.createRadialGradient(p[0], p[1], 2, p[0], p[1], R * 0.75);
+    grad.addColorStop(0, hexA(col, 0.30)); grad.addColorStop(0.25, hexA(col, 0.14)); grad.addColorStop(1, hexA(col, 0));
+    g.fillStyle = grad;
+    g.beginPath(); g.moveTo(p[0], p[1]); g.arc(p[0], p[1], R, ang - tenth, ang + tenth); g.closePath(); g.globalAlpha = 0.45; g.fill();
+    g.beginPath(); g.moveTo(p[0], p[1]); g.arc(p[0], p[1], R, ang - half, ang + half); g.closePath(); g.globalAlpha = 1; g.fill();
+    g.strokeStyle = hexA(col, 0.9); g.lineWidth = 1.2; g.setLineDash([6, 5]);
+    [-half, half].forEach(function (d) { g.beginPath(); g.moveTo(p[0], p[1]); g.lineTo(p[0] + Math.cos(ang + d) * R, p[1] + Math.sin(ang + d) * R); g.stroke(); });
+    g.setLineDash([]);
+  }
+  function drawRig(v, world) {
+    var g = v.g, kit = world.kit, hs = kit.housing, ink = css('--ink');
+    var hc = [0, 0, hs.front - hs.d / 2], ext = v.kind === 'top' ? [hs.w / 2, hs.d / 2] : [hs.d / 2, hs.h / 2];
+    var c = v.scr(hc);
+    g.fillStyle = hexA(ink, 0.82); g.strokeStyle = ink; g.lineWidth = 1;
+    g.fillRect(c[0] - ext[0] * v.s, c[1] - ext[1] * v.s, 2 * ext[0] * v.s, 2 * ext[1] * v.s);
+    if (kit.port.type === 'dome') {
+      var dc = v.scr([0, 0, -kit.port.r]), ang0 = v.kind === 'top' ? -Math.PI : -Math.PI / 2;
+      g.fillStyle = 'rgba(120,190,220,0.35)'; g.strokeStyle = hexA(ink, 0.9);
+      g.beginPath(); if (v.kind === 'top') g.arc(dc[0], dc[1], kit.port.r * v.s, Math.PI, 2 * Math.PI); else g.arc(dc[0], dc[1], kit.port.r * v.s, -Math.PI / 2, Math.PI / 2); g.closePath(); g.fill(); g.stroke();
+    } else {
+      var a = v.scr([0, 0, hs.front]), b = v.scr([0, 0, 0]), w = kit.port.r * v.s;
+      g.fillStyle = hexA(ink, 0.82);
+      if (v.kind === 'top') g.fillRect(a[0] - w, b[1], 2 * w, a[1] - b[1]); else g.fillRect(a[0], a[1] - w, b[0] - a[0], 2 * w);
+      g.strokeStyle = 'rgba(120,190,220,0.9)'; g.lineWidth = 2; g.beginPath();
+      if (v.kind === 'top') { g.moveTo(b[0] - w, b[1]); g.lineTo(b[0] + w, b[1]); } else { g.moveTo(b[0], b[1] - w); g.lineTo(b[0], b[1] + w); }
+      g.stroke();
+    }
+    // handles
+    [-1, 1].forEach(function (sd) {
+      var h0 = v.scr([sd * kit.tray.x, kit.tray.bottom, kit.tray.z]), h1 = v.scr([sd * kit.tray.x, kit.tray.top, kit.tray.z]);
+      g.strokeStyle = hexA(ink, 0.7); g.lineWidth = Math.max(3, 0.034 * v.s); g.lineCap = 'round';
+      g.beginPath(); g.moveTo(h0[0], h0[1]); g.lineTo(h1[0], h1[1]); g.stroke(); g.lineCap = 'butt';
+    });
+    if (v.kind === 'top') { var t0 = v.scr([-kit.tray.x, 0, kit.tray.z]), t1 = v.scr([kit.tray.x, 0, kit.tray.z]); g.strokeStyle = hexA(ink, 0.5); g.lineWidth = 4; g.beginPath(); g.moveTo(t0[0], t0[1]); g.lineTo(t1[0], t1[1]); g.stroke(); }
+  }
+  function drawStrobes(v, world) {
+    var g = v.g, ink = css('--ink'), kit = world.kit;
+    state.strobes.forEach(function (st, i) {
+      var m = S.strobeModel(st.model), side = i === 0 ? -1 : 1, col = i === 0 ? css('--sA') : css('--sB');
+      var ax = S.strobeAxis(st.yaw, st.pitch), pos = st.pos;
+      var base = S.armBase(kit, side), mount = S.mountPoint(m, pos, ax), elbow = S.armElbow(base, mount, state.arms[0], state.arms[1], side);
+      var B = v.scr(base), E = v.scr(elbow), M = v.scr(mount);
+      g.globalAlpha = st.on ? 1 : 0.35;
+      g.strokeStyle = hexA(ink, 0.65); g.lineWidth = 3; g.lineCap = 'round';
+      g.beginPath(); g.moveTo(B[0], B[1]); g.lineTo(E[0], E[1]); g.lineTo(M[0], M[1]); g.stroke(); g.lineCap = 'butt';
+      [B, E].forEach(function (q) { g.fillStyle = ink; g.beginPath(); g.arc(q[0], q[1], 3.5, 0, Math.PI * 2); g.fill(); });
+      // body: rectangle from back to front along the projected axis
+      var front = v.scr(pos), back = v.scr(S.sub(pos, S.mul(ax, m.bodyL)));
+      var dx = front[0] - back[0], dy = front[1] - back[1], dl = Math.hypot(dx, dy) || 1, nx = -dy / dl, ny = dx / dl, hw = m.bodyD / 2 * v.s;
+      g.fillStyle = hexA(ink, 0.85);
+      g.beginPath(); g.moveTo(back[0] + nx * hw, back[1] + ny * hw); g.lineTo(front[0] + nx * hw, front[1] + ny * hw); g.lineTo(front[0] - nx * hw, front[1] - ny * hw); g.lineTo(back[0] - nx * hw, back[1] - ny * hw); g.closePath(); g.fill();
+      g.strokeStyle = col; g.lineWidth = 3; g.beginPath(); g.moveTo(front[0] + nx * hw, front[1] + ny * hw); g.lineTo(front[0] - nx * hw, front[1] - ny * hw); g.stroke();
+      // handles: head and aim knob
+      var a2 = v.proj(ax), al = Math.hypot(a2[0], a2[1]);
+      var dirS = al > 0.05 ? [a2[0] / al, -a2[1] / al] : [0, -1];
+      var knob = [front[0] + dirS[0] * 46, front[1] + dirS[1] * 46];
+      g.strokeStyle = col; g.lineWidth = 1.5; g.beginPath(); g.moveTo(front[0], front[1]); g.lineTo(knob[0], knob[1]); g.stroke();
+      g.fillStyle = col; g.strokeStyle = css('--view-bg'); g.lineWidth = 2;
+      g.beginPath(); g.arc(knob[0], knob[1], 6.5, 0, Math.PI * 2); g.fill(); g.stroke();
+      g.beginPath(); g.arc(front[0], front[1], 8.5, 0, Math.PI * 2); g.fill(); g.stroke();
+      g.fillStyle = '#fff'; g.font = '700 10.5px "IBM Plex Sans", system-ui'; g.textAlign = 'center'; g.textBaseline = 'middle';
+      g.fillText(i === 0 ? 'A' : 'B', front[0], front[1] + 0.5); g.textAlign = 'start'; g.textBaseline = 'alphabetic';
+      // angle label
+      var lab = v.kind === 'top' ? Math.abs(st.yaw).toFixed(0) + '° ' + ((st.yaw * side) > 0.5 ? 'out' : (st.yaw * side) < -0.5 ? 'in' : '') : Math.abs(st.pitch).toFixed(0) + '° ' + (st.pitch > 0.5 ? 'up' : st.pitch < -0.5 ? 'down' : '');
+      g.fillStyle = css('--ink-2'); g.font = '11px "IBM Plex Mono", monospace';
+      g.fillText(lab, knob[0] + 9, knob[1] + 4);
+      g.globalAlpha = 1;
+      v.handles = v.handles || [];
+      v.handles.push({ i: i, kind: 'head', x: front[0], y: front[1] }, { i: i, kind: 'aim', x: knob[0], y: knob[1] });
+    });
+  }
+  function drawViews(draft) {
+    var world = lastWorld || S.buildWorld(effectiveState(), 480);
+    ['top', 'side'].forEach(function (kind) {
+      var v = setupView(kind, world);
+      v.handles = [];
+      drawGrid(v);
+      drawHeat(v, world, draft ? 64 : 132);
+      world.strobes.forEach(function (s) { beamFan(v, world, s, s.side < 0 ? css('--sA') : css('--sB')); });
+      drawFOV(v, world);
+      drawScene(v, world);
+      drawRig(v, world);
+      drawStrobes(v, world);
+    });
+  }
+
+  /* dragging in the diagrams */
+  var drag = null;
+  function hitHandle(v, x, y) {
+    var best = null, bd = 16;
+    (v.handles || []).forEach(function (h) { var d = Math.hypot(h.x - x, h.y - y) - (h.kind === 'aim' ? 2 : 0); if (d < bd) { bd = d; best = h; } });
+    return best;
+  }
+  function relAim(i) {
+    var st = state.strobes[i], a = S.aimAt(st.pos, [0, 0, state.Z]);
+    return { dy: st.yaw - a.yaw, dp: st.pitch - a.pitch };
+  }
+  ['top', 'side'].forEach(function (kind) {
+    var c = views[kind].canvas;
+    c.addEventListener('pointerdown', function (e) {
+      var r = c.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top, v = views[kind];
+      var h = hitHandle(v, x, y); if (!h) return;
+      if (!state.strobes[h.i].on) { state.strobes[h.i].on = true; buildStrobeCards(); }
+      drag = { kind: kind, h: h, rel: relAim(h.i) };
+      c.setPointerCapture(e.pointerId); e.preventDefault();
+      state.placement = '';
+    });
+    c.addEventListener('pointermove', function (e) {
+      var r = c.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top, v = views[kind];
+      if (!drag || drag.kind !== kind) { c.style.cursor = hitHandle(v, x, y) ? 'grab' : 'default'; return; }
+      c.style.cursor = 'grabbing';
+      var st = state.strobes[drag.h.i], side = drag.h.i === 0 ? -1 : 1, m = model(drag.h.i);
+      var u = v.U(x), w = v.V(y);
+      if (drag.h.kind === 'head') {
+        var p = st.pos.slice();
+        if (kind === 'top') { p[0] = u; p[2] = w; } else { p[2] = u; p[1] = w; }
+        var ax = S.strobeAxis(st.yaw, st.pitch);
+        st.pos = S.constrainStrobe(kitObj(), m, p, ax, side, state.arms);
+        if (state.aimLock) { var a = S.aimAt(st.pos, [0, 0, state.Z]); st.yaw = a.yaw + drag.rel.dy; st.pitch = a.pitch + drag.rel.dp; }
+      } else {
+        var front = v.scr(st.pos), dx = x - front[0], dy = -(y - front[1]);
+        if (kind === 'top') st.yaw = clamp(Math.atan2(dx, dy) * RAD, -89, 89);
+        else { var alpha = clamp(Math.atan2(dy, Math.max(dx, 1e-3)) * RAD, -85, 85); st.pitch = Math.atan(Math.tan(alpha * DEG) * Math.cos(st.yaw * DEG)) * RAD; }
+        st.pos = S.constrainStrobe(kitObj(), m, st.pos, S.strobeAxis(st.yaw, st.pitch), side, state.arms);
+      }
+      $('placement').value = '';
+      update(true);
+    });
+    function end(e) { if (drag && drag.kind === kind) { drag = null; c.style.cursor = 'default'; update(false); } }
+    c.addEventListener('pointerup', end); c.addEventListener('pointercancel', end);
+  });
+
+  /* observer view: drag to orbit */
+  (function () {
+    var last = null;
+    glCanvas.addEventListener('pointerdown', function (e) { if (state.view !== 'observer') return; last = [e.clientX, e.clientY]; glCanvas.setPointerCapture(e.pointerId); });
+    glCanvas.addEventListener('pointermove', function (e) {
+      if (!last) return;
+      state.obs.az = ((state.obs.az + (e.clientX - last[0]) * 0.35 + 540) % 360) - 180;
+      state.obs.el = clamp(state.obs.el + (e.clientY - last[1]) * 0.25, -20, 80);
+      last = [e.clientX, e.clientY]; update(true);
+    });
+    function end() { if (last) { last = null; update(false); } }
+    glCanvas.addEventListener('pointerup', end); glCanvas.addEventListener('pointercancel', end);
+  })();
+
+  /* ---------------- controls ---------------- */
+  function opt(v, t) { return '<option value="' + esc(v) + '">' + esc(t) + '</option>'; }
+  $('kit').innerHTML = S.KITS.map(function (k) { return opt(k.id, k.name); }).join('');
+  $('lens').innerHTML = S.LENSES.map(function (l) { return opt(l.id, l.name); }).join('');
+  $('placement').innerHTML = opt('', '— your own —') + S.PLACEMENTS.map(function (p) { return opt(p.id, p.name); }).join('');
+  $('scene').innerHTML = S.SCENES.map(function (s) { return opt(s.id, s.name); }).join('');
+  $('water').innerHTML = S.WATER.map(function (w) { return opt(w.id, w.name); }).join('');
+  $('sky').innerHTML = S.SKY.map(function (s) { return opt(s.id, s.name); }).join('');
+
+  // log-scaled sliders
+  function visFromSlider(x) { return 0.5 * Math.pow(80, x / 100); }          // 0.5–40 m
+  function sliderFromVis(v) { return 100 * Math.log(v / 0.5) / Math.log(80); }
+  function specksFromSlider(x) { return x <= 0 ? 0 : 0.01 * Math.pow(2000, x / 100); }   // 0, 0.01–20 per L
+  function sliderFromSpecks(v) { return v <= 0 ? 0 : 100 * Math.log(v / 0.01) / Math.log(2000); }
+
+  function buildStrobeCards() {
+    var html = '';
+    state.strobes.forEach(function (st, i) {
+      var name = i === 0 ? 'A' : 'B', side = i === 0 ? 'left' : 'right', col = i === 0 ? 'var(--sA)' : 'var(--sB)';
+      html += '<div class="strobe-card' + (st.on ? '' : ' off') + '" data-i="' + i + '">' +
+        '<header><h3><i style="background:' + col + '"></i>Strobe ' + name + ' <span class="hint" style="margin:0">(' + side + ')</span></h3>' +
+        '<label class="check" style="margin:0"><input type="checkbox" data-k="on"' + (st.on ? ' checked' : '') + '> On</label></header>' +
+        '<div class="body">' +
+        '<div class="field"><select data-k="model" aria-label="Strobe ' + name + ' model">' + S.STROBES.map(function (m) { return '<option value="' + m.id + '"' + (m.id === st.model ? ' selected' : '') + '>' + esc(m.name) + '</option>'; }).join('') + '</select></div>' +
+        '<div class="field"><label><span>' + (state.ttl ? 'Power (TTL bias)' : 'Power (manual)') + '</span><output data-o="power"></output></label><input type="range" data-k="offset" min="' + (state.ttl ? -3 : S.strobeModel(st.model).minEV) + '" max="' + (state.ttl ? 3 : 0) + '" step="0.5" value="' + st.offset + '" aria-label="Strobe ' + name + ' power"></div>' +
+        '<div class="row2"><div class="field"><label><span>Sideways</span><output data-o="x"></output></label><input type="range" data-k="x" min="' + (i === 0 ? -0.9 : 0) + '" max="' + (i === 0 ? 0 : 0.9) + '" step="0.01" aria-label="Strobe ' + name + ' sideways position"></div>' +
+        '<div class="field"><label><span>Height</span><output data-o="y"></output></label><input type="range" data-k="y" min="-0.4" max="0.7" step="0.01" aria-label="Strobe ' + name + ' height"></div></div>' +
+        '<div class="row2"><div class="field"><label><span>Forward</span><output data-o="z"></output></label><input type="range" data-k="z" min="-0.45" max="0.45" step="0.01" aria-label="Strobe ' + name + ' forward position"></div>' +
+        '<div class="field"><label><span>Angle</span><output data-o="yaw"></output></label><input type="range" data-k="yaw" min="-75" max="75" step="1" aria-label="Strobe ' + name + ' angle out"></div></div>' +
+        '<div class="row2"><div class="field"><label><span>Tilt</span><output data-o="pitch"></output></label><input type="range" data-k="pitch" min="-70" max="50" step="1" aria-label="Strobe ' + name + ' tilt"></div>' +
+        '<div class="field" style="align-self:end"><button class="btn small" type="button" data-k="aim">Aim at subject</button></div></div>' +
+        '</div></div>';
+    });
+    $('strobeCards').innerHTML = html;
+    syncControls();
+  }
+  $('strobeCards').addEventListener('input', onStrobeInput);
+  $('strobeCards').addEventListener('change', onStrobeInput);
+  $('strobeCards').addEventListener('click', function (e) {
+    var b = e.target.closest('button[data-k="aim"]'); if (!b) return;
+    var i = +b.closest('.strobe-card').getAttribute('data-i'), st = state.strobes[i], a = S.aimAt(st.pos, [0, 0, state.Z]);
+    st.yaw = a.yaw; st.pitch = a.pitch; $('placement').value = ''; update(false);
+  });
+  function onStrobeInput(e) {
+    var el = e.target, k = el.getAttribute('data-k'); if (!k || k === 'aim') return;
+    var card = el.closest('.strobe-card'), i = +card.getAttribute('data-i'), st = state.strobes[i], side = i === 0 ? -1 : 1;
+    if (k === 'on') { st.on = el.checked; card.classList.toggle('off', !st.on); update(false); return; }
+    if (k === 'model') { st.model = el.value; if (!state.ttl) st.offset = Math.max(st.offset, minPower(i)); st.pos = S.constrainStrobe(kitObj(), model(i), st.pos, S.strobeAxis(st.yaw, st.pitch), side, state.arms); buildStrobeCards(); update(false); return; }
+    var val = parseFloat(el.value);
+    if (k === 'offset') st.offset = val;
+    else if (k === 'x' || k === 'y' || k === 'z') {
+      var idx = { x: 0, y: 1, z: 2 }[k], p = st.pos.slice(); p[idx] = val;
+      var rel = relAim(i);
+      st.pos = S.constrainStrobe(kitObj(), model(i), p, S.strobeAxis(st.yaw, st.pitch), side, state.arms);
+      if (state.aimLock) { var a = S.aimAt(st.pos, [0, 0, state.Z]); st.yaw = a.yaw + rel.dy; st.pitch = a.pitch + rel.dp; }
+    } else if (k === 'yaw') st.yaw = side * val;
+    else if (k === 'pitch') st.pitch = val;
+    $('placement').value = '';
+    update(e.type === 'input');
+  }
+
+  function syncControls() {
+    var lens = S.LENSES.filter(function (l) { return l.id === state.lens; })[0];
+    $('kit').value = state.kit; $('lens').value = state.lens;
+    var stops = N_STOPS.filter(function (n) { return n >= lens.Nmin - 0.05 && n <= lens.Nmax + 0.05; });
+    var Nel = $('N'); Nel.max = stops.length - 1;
+    var idx = 0; stops.forEach(function (n, k) { if (Math.abs(n - state.N) < Math.abs(stops[idx] - state.N)) idx = k; });
+    state.N = stops[idx]; Nel.value = idx; $('NOut').textContent = fmtN(state.N);
+    $('shutter').value = String(Math.round(1 / state.shutter)); $('iso').value = String(state.iso);
+    $('scene').value = state.scene; $('Z').value = state.Z; $('ZOut').textContent = fmtLen(state.Z);
+    $('tilt').value = state.tilt; $('tiltOut').textContent = (state.tilt > 0 ? '+' : '') + state.tilt + '°';
+    $('water').value = state.water;
+    $('vis').value = sliderFromVis(state.visibility); $('visOut').textContent = state.visibility.toFixed(state.visibility < 10 ? 1 : 0) + ' m';
+    $('specks').value = sliderFromSpecks(state.specks); $('specksOut').textContent = state.specks < 0.1 ? state.specks.toFixed(2) : state.specks.toFixed(1);
+    $('depth').value = state.depth; $('depthOut').textContent = state.depth + ' m';
+    $('sky').value = state.sky; $('ttl').checked = state.ttl; $('aimLock').checked = state.aimLock;
+    $('arms').value = state.arms.join(',');
+    if (!$('placement').matches(':focus')) $('placement').value = state.placement || '';
+    var cards = document.querySelectorAll('.strobe-card');
+    cards.forEach(function (card) {
+      var i = +card.getAttribute('data-i'), st = state.strobes[i], side = i === 0 ? -1 : 1;
+      function set(k, v, txt) { var inp = card.querySelector('[data-k="' + k + '"]'); if (inp && document.activeElement !== inp) inp.value = v; var o = card.querySelector('[data-o="' + k + '"]'); if (o) o.textContent = txt; }
+      set('x', st.pos[0], fmtLen(st.pos[0]));
+      set('y', st.pos[1], fmtLen(st.pos[1]));
+      set('z', st.pos[2], fmtLen(st.pos[2]));
+      var out = side * st.yaw;
+      set('yaw', out, Math.abs(out) < 0.5 ? 'straight' : Math.abs(out).toFixed(0) + '° ' + (out > 0 ? 'out' : 'in'));
+      set('pitch', st.pitch, Math.abs(st.pitch) < 0.5 ? 'level' : Math.abs(st.pitch).toFixed(0) + '° ' + (st.pitch > 0 ? 'up' : 'down'));
+      var off = card.querySelector('[data-k="offset"]'); if (off) { off.min = state.ttl ? -3 : minPower(i); off.max = state.ttl ? 3 : 0; if (document.activeElement !== off) off.value = st.offset; }
+      var po = card.querySelector('[data-o="power"]');
+      if (po) po.textContent = (st.on ? fmtEV(powerOf(i)).replace(' EV', ' EV') + (state.ttl ? ' (TTL' + (st.offset ? ', ' + (st.offset > 0 ? '+' : '−') + Math.abs(st.offset) + ' bias' : '') + ')' : '') : 'off');
+      var cb = card.querySelector('[data-k="on"]'); if (cb) cb.checked = st.on; card.classList.toggle('off', !st.on);
+    });
+    var w = S.makeWater(state.water, { visibility: state.visibility, specks: state.specks });
+    $('waterReadout').textContent = 'c = ' + w.c.map(function (x) { return x.toFixed(2); }).join(' / ') + ' m⁻¹ (R/G/B) · b = ' + w.b[1].toFixed(2) + ' · Kd = ' + w.Kd[1].toFixed(2) + ' · n = ' + w.n.toFixed(3);
+    var cam = S.lensSetup(state.lens, w.n, 960);
+    $('lensReadout').textContent = 'Field under water ' + cam.hfov.toFixed(0) + '° × ' + cam.vfov.toFixed(0) + '° (in air ' + cam.hfovAir.toFixed(0) + '°) · ' + (cam.proj === 'flat' ? 'flat port' : cam.proj === 'water' ? 'wet lens' : 'dome R ' + (cam.domeR * 100).toFixed(1) + ' cm');
+    var sc = S.findById(S.SCENES, state.scene); $('sceneNote').textContent = sc.note;
+    var zr = state.scene === 'macro' ? [0.05, 0.6] : [0.3, 3]; $('Z').min = zr[0]; $('Z').max = zr[1]; $('Z').step = state.scene === 'macro' ? 0.005 : 0.01;
+    document.querySelectorAll('[data-q]').forEach(function (b) { b.setAttribute('aria-pressed', String(b.getAttribute('data-q') === state.quality)); });
+    document.querySelectorAll('[data-view]').forEach(function (b) { b.setAttribute('aria-pressed', String(b.getAttribute('data-view') === state.view)); });
+    $('mode').value = state.mode; $('volShadows').checked = state.volShadows; $('boost').value = String(state.boost);
+  }
+
+  function applyPlacement(id) {
+    if (!id) return;
+    var models = [model(0), model(1)];
+    var pl = S.placement(id, kitObj(), state.Z, models);
+    pl.forEach(function (p, i) { var st = state.strobes[i]; st.pos = p.pos; st.yaw = p.yaw; st.pitch = p.pitch; st.on = p.on; });
+    if (id !== 'top' && id !== 'side' && S.kitById(state.kit).on[1] === false && state.kit === 'compact') state.strobes[1].on = false;
+    state.placement = id;
+    buildStrobeCards();
+  }
+  function applyKit(id) {
+    var k = S.kitById(id);
+    state.kit = id; state.arms = k.arms.slice();
+    state.lens = state.scene === 'macro' ? (id === 'big' ? 'ff60' : 'g9x-w') : k.lens;
+    state.N = state.scene === 'macro' ? (id === 'big' ? 16 : 8) : k.N; state.shutter = k.shutter; state.iso = state.scene === 'macro' ? 100 : k.iso;
+    state.strobes.forEach(function (st, i) { st.model = k.strobes[i]; st.on = k.on[i]; st.offset = 0; });
+    applyPlacement(state.scene === 'macro' ? 'macro' : (state.placement || 'aimed'));
+    if (id === 'compact') state.strobes[1].on = false;
+  }
+  function applyScene(id) {
+    var sc = S.findById(S.SCENES, id), wasMacro = state.scene === 'macro';
+    state.scene = id; state.Z = sc.Z; state.tilt = sc.tilt;
+    var macro = id === 'macro';
+    if (macro && !wasMacro) { if (state.kit === 'big') { state.lens = 'ff60'; state.N = 16; } else { state.N = 8; state.iso = 100; } }
+    if (!macro && wasMacro) { state.lens = S.kitById(state.kit).lens; state.N = S.kitById(state.kit).N; }
+    applyPlacement(macro ? 'macro' : (state.placement && state.placement !== 'macro' ? state.placement : 'aimed'));
+  }
+  function applyWater(id) {
+    var p = S.WATER.filter(function (w) { return w.id === id; })[0];
+    state.water = id; state.specks = p.specks;
+    state.visibility = S.makeWater(id).visibility;
+  }
+
+  $('kit').addEventListener('change', function () { applyKit($('kit').value); update(false); });
+  $('lens').addEventListener('change', function () { state.lens = $('lens').value; update(false); });
+  $('N').addEventListener('input', function () {
+    var lens = S.LENSES.filter(function (l) { return l.id === state.lens; })[0];
+    var stops = N_STOPS.filter(function (n) { return n >= lens.Nmin - 0.05 && n <= lens.Nmax + 0.05; });
+    state.N = stops[+$('N').value]; update(true);
+  });
+  $('shutter').addEventListener('change', function () { state.shutter = 1 / +$('shutter').value; update(false); });
+  $('iso').addEventListener('change', function () { state.iso = +$('iso').value; update(false); });
+  $('placement').addEventListener('change', function () { applyPlacement($('placement').value); update(false); });
+  $('ttl').addEventListener('change', function () { state.ttl = $('ttl').checked; if (!state.ttl) state.strobes.forEach(function (st, i) { st.offset = Math.round(powerOf(i) * 2) / 2; }); else state.strobes.forEach(function (st) { st.offset = 0; }); buildStrobeCards(); update(false); });
+  $('aimLock').addEventListener('change', function () { state.aimLock = $('aimLock').checked; });
+  $('arms').addEventListener('change', function () {
+    state.arms = $('arms').value.split(',').map(Number);
+    state.strobes.forEach(function (st, i) { st.pos = S.constrainStrobe(kitObj(), model(i), st.pos, S.strobeAxis(st.yaw, st.pitch), i === 0 ? -1 : 1, state.arms); });
+    update(false);
+  });
+  $('scene').addEventListener('change', function () { applyScene($('scene').value); update(false); });
+  $('Z').addEventListener('input', function () {
+    var Znew = +$('Z').value;
+    if (state.aimLock) state.strobes.forEach(function (st, i) { var r = relAim(i), a = S.aimAt(st.pos, [0, 0, Znew]); st.yaw = a.yaw + r.dy; st.pitch = a.pitch + r.dp; });
+    state.Z = Znew; update(true);
+  });
+  $('Z').addEventListener('change', function () { update(false); });
+  $('tilt').addEventListener('input', function () { state.tilt = +$('tilt').value; update(true); });
+  $('water').addEventListener('change', function () { applyWater($('water').value); update(false); });
+  $('vis').addEventListener('input', function () { state.visibility = Math.round(visFromSlider(+$('vis').value) * 10) / 10; update(true); });
+  $('specks').addEventListener('input', function () { state.specks = Math.round(specksFromSlider(+$('specks').value) * 100) / 100; update(true); });
+  $('depth').addEventListener('input', function () { state.depth = +$('depth').value; update(true); });
+  $('sky').addEventListener('change', function () { state.sky = $('sky').value; update(false); });
+  document.querySelectorAll('[data-q]').forEach(function (b) { b.addEventListener('click', function () { state.quality = b.getAttribute('data-q'); update(false); }); });
+  document.querySelectorAll('[data-view]').forEach(function (b) { b.addEventListener('click', function () { state.view = b.getAttribute('data-view'); update(false); }); });
+  $('mode').addEventListener('change', function () { state.mode = $('mode').value; update(false); });
+  $('volShadows').addEventListener('change', function () { state.volShadows = $('volShadows').checked; update(false); });
+  $('boost').addEventListener('change', function () { state.boost = +$('boost').value; update(false); });
+  ['change', 'input'].forEach(function (ev) { ['Z', 'vis', 'specks', 'depth', 'tilt', 'N'].forEach(function (id) { if (ev === 'change') $(id).addEventListener('change', function () { update(false); }); }); });
+
+  /* ---------------- results ---------------- */
+  function pill(cls, txt) { return '<span class="pill ' + cls + '">' + txt + '</span>'; }
+  function tile(k, v, s) { return '<div class="tile"><div class="k">' + k + '</div><div class="v">' + v + '</div><div class="s">' + (s || '') + '</div></div>'; }
+  function computeResults() {
+    var world = S.buildWorld(effectiveState(), 480);
+    var m = S.computeMetrics(world, { nx: 36, soft: 4, steps: 28, speckSamples: 1500 });
+    lastMetrics = m;
+    var tiles = '', anyOn = world.strobes.length > 0;
+    var ev = m.subjectEV, evCls = !isFinite(ev) ? '' : Math.abs(ev) < 0.5 ? 'good' : Math.abs(ev) < 1.2 ? 'warn' : 'crit';
+    var powers = state.strobes.map(function (st, i) { return st.on ? (i === 0 ? 'A ' : 'B ') + fmtEV(powerOf(i)).replace(' EV', '') : null; }).filter(Boolean).join(' · ');
+    tiles += tile('Subject exposure', fmtEV(ev) + (evCls ? pill(evCls, evCls === 'good' ? 'OK' : Math.abs(ev) < 1.2 ? 'check' : (ev > 0 ? 'over' : 'under')) : ''), anyOn ? 'power ' + powers + (state.ttl ? ' (TTL)' : '') : 'no strobe on');
+    var rng = m.subjectRange[1] - m.subjectRange[0], rCls = !isFinite(rng) ? '' : rng < 1 ? 'good' : rng < 2 ? 'warn' : 'crit';
+    tiles += tile('Evenness on the subject', (isFinite(rng) ? rng.toFixed(1) + ' EV' : '–') + (rCls ? pill(rCls, rCls === 'good' ? 'even' : rCls === 'warn' ? 'uneven' : 'patchy') : ''), 'whole frame ' + (isFinite(m.frameRange[1]) ? (m.frameRange[1] - m.frameRange[0]).toFixed(1) + ' EV' : '–') + ' (10–90 %)');
+    var vCls = !isFinite(m.veil) ? '' : m.veil < 0.08 ? 'good' : m.veil < 0.25 ? 'warn' : 'crit';
+    tiles += tile('Backscatter haze over the subject', pct(m.veil) + (vCls ? pill(vCls, vCls === 'good' ? 'low' : vCls === 'warn' ? 'visible' : 'heavy') : ''), 'worst in frame ' + (m.veilMax > 3 ? 'over 300 %' : pct(m.veilMax)) + ' · half from the first ' + fmtLen(m.halfDistance));
+    var sp = m.specks, sCls = !sp ? '' : sp.bright < 8 ? 'good' : sp.bright < 40 ? 'warn' : 'crit';
+    tiles += tile('Bright backscatter specks', (sp ? '≈ ' + Math.round(sp.bright) : '–') + (sCls ? pill(sCls, sCls === 'good' ? 'few' : sCls === 'warn' ? 'some' : 'many') : ''), sp ? '≈ ' + Math.round(sp.visible) + ' faint · ' + state.specks + ' per litre' : '');
+    var sh = m.shadowDeep, shCls = sh < 0.05 ? 'good' : sh < 0.15 ? 'warn' : 'crit';
+    var pen = m.strobes.map(function (s) { return s.penumbra.toFixed(1) + '°'; }).join(' / ');
+    tiles += tile('Shadowed frame', pct(sh) + ' deep' + pill(shCls, shCls === 'good' ? 'soft' : shCls === 'warn' ? 'some' : 'strong'), pct(m.shadowPartial) + ' partial · light size ' + (pen || '–'));
+    var rl = m.redLoss, rlCls = !isFinite(rl) ? '' : rl > -0.6 ? 'good' : rl > -1.5 ? 'warn' : 'crit';
+    tiles += tile('Red lost on the strobe path', (isFinite(rl) ? fmtEV(rl) : '–') + (rlCls ? pill(rlCls, rlCls === 'good' ? 'natural' : rlCls === 'warn' ? 'cooler' : 'blue-green') : ''), 'background water ' + (isFinite(m.backgroundEV) ? fmtEV(m.backgroundEV) : 'not in frame'));
+    $('tiles').innerHTML = tiles;
+
+    // strobe table
+    if (m.strobes.length) {
+      $('strobeTable').innerHTML = '<table class="tv"><thead><tr><th>Strobe</th><th title="Distance from the strobe to the subject">dist.</th><th title="Angle between the beam axis and the subject">off axis</th><th title="Beam intensity reaching the subject, relative to the axis">beam</th><th title="Share of the strobe light on the subject">share</th><th title="Apparent size of the light seen from the subject: larger is softer">size</th></tr></thead><tbody>' +
+        m.strobes.map(function (s) { return '<tr><td title="' + esc(s.name) + '">' + (s.index === 0 ? 'A' : 'B') + ' · ' + esc(s.name.replace('INON ', '').replace(' + −0.5 white diffuser', ' + diff.')) + '</td><td>' + fmtLen(s.distance) + '</td><td>' + s.offAxis.toFixed(0) + '°</td><td>' + pct(s.relB) + '</td><td>' + pct(s.share) + '</td><td>' + s.penumbra.toFixed(1) + '°</td></tr>'; }).join('') + '</tbody></table>' +
+        '<p class="hint">Off axis: how far the subject sits from each beam’s centre (edge lighting is 35–55°). Size: the light’s apparent diameter from the subject; bigger gives softer shadows.</p>';
+    } else $('strobeTable').innerHTML = '<p class="empty">Both strobes are off: only daylight lights the scene.</p>';
+    renderAdvice(world, m);
+  }
+
+  function renderAdvice(world, m) {
+    var adv = [], vis = world.water.visibility, Z = world.Z;
+    if (!world.strobes.length) adv.push(['info', 'No strobe is on. Turn one on in the strobe cards or drag a strobe head in a diagram.']);
+    if (isFinite(m.veil)) {
+      if (m.veil >= 0.25) adv.push(['crit', 'Heavy backscatter: the haze is ' + pct(m.veil) + ' as bright as the subject itself. Move the strobes further out and behind the port, angle them outward so only the inner edge of each beam reaches the subject, or get closer to the subject.']);
+      else if (m.veil >= 0.08) adv.push(['warn', 'Visible backscatter haze (' + pct(m.veil) + ' of the subject’s brightness). Try moving the strobes back behind the port or angling them a little more outward.']);
+      else adv.push(['good', 'Backscatter haze is low (' + pct(m.veil) + ' of the subject’s brightness).']);
+      if (m.veil >= 0.08 && isFinite(m.halfDistance)) adv.push(['info', 'Half of that haze is scattered in the first ' + fmtLen(m.halfDistance) + ' in front of the port, where the beams cross the field of view (the amber cloud in the diagrams).']);
+    }
+    if (m.specks && m.specks.bright >= 40) adv.push(['crit', 'About ' + Math.round(m.specks.bright) + ' particles will show as bright specks. Keep the beams out of the water directly in front of the lens; in this water the best fix is a shorter camera-to-subject distance.']);
+    else if (m.specks && m.specks.bright >= 8) adv.push(['warn', 'About ' + Math.round(m.specks.bright) + ' particles will show as bright specks; expect some retouching.']);
+    if (Z > vis / 4) adv.push([Z > vis / 3 ? 'crit' : 'warn', 'The subject is ' + fmtLen(Z) + ' away in ' + vis.toFixed(1) + ' m visibility. Beyond roughly a quarter to a third of the visibility, contrast and colour fall away quickly; get closer and use a wider lens.']);
+    var rng = m.subjectRange[1] - m.subjectRange[0];
+    if (isFinite(rng) && rng >= 1.5) adv.push(['warn', 'Uneven light on the subject: ' + rng.toFixed(1) + ' EV between its brighter and darker parts. Check the exposure map; aim the beams so they overlap evenly across the subject, or move the strobes back to flatten the fall-off.']);
+    if (m.shadowDeep >= 0.15) adv.push(['warn', pct(m.shadowDeep) + ' of the frame is in deep shadow. Bring one strobe nearer the lens axis or above the camera, or add fill from the second strobe.']);
+    if (isFinite(m.redLoss) && m.redLoss <= -1) adv.push(['warn', 'Red is ' + fmtEV(m.redLoss).replace('−', '') + ' down relative to green on the strobe light path (strobe → subject → lens). Shorten that path: get closer, or bring the strobes nearer the subject.']);
+    if (isFinite(m.subjectEV) && Math.abs(m.subjectEV) >= 0.7) {
+      if (m.subjectEV < 0 && state.ttl) adv.push(['crit', 'Under-exposed by ' + Math.abs(m.subjectEV).toFixed(1) + ' EV even with the strobes at full power. Open the aperture, raise ISO or move closer.']);
+      else if (m.subjectEV > 0 && state.ttl) adv.push(['crit', 'Over-exposed by ' + m.subjectEV.toFixed(1) + ' EV with the strobes at their lowest power step. Close the aperture, lower ISO, add a diffuser or move the strobes back.']);
+      else adv.push(['warn', (m.subjectEV > 0 ? 'Over' : 'Under') + '-exposed by ' + Math.abs(m.subjectEV).toFixed(1) + ' EV. Change the strobe power or the aperture.']);
+    }
+    m.strobes.forEach(function (s) {
+      var nm = s.index === 0 ? 'A' : 'B';
+      if (s.relB < 0.3) adv.push(['info', 'Strobe ' + nm + ' reaches the subject with only ' + pct(s.relB) + ' of its peak intensity (' + s.offAxis.toFixed(0) + '° off its axis). That is edge lighting: good against backscatter, but it costs power.']);
+    });
+    world.strobes.forEach(function (s) {
+      var nm = s.index === 0 ? 'A' : 'B', p = s.posRig;
+      if (p[2] > 0.02 && state.scene !== 'macro') adv.push(['warn', 'Strobe ' + nm + ' is ' + fmtLen(p[2]) + ' in front of the port: it may appear in the frame or flare on the port.']);
+    });
+    if (state.shutter < S.kitById(state.kit).sync - 1e-9) adv.push(['warn', 'Shutter 1/' + Math.round(1 / state.shutter) + ' s is faster than the flash sync speed of this camera (1/' + Math.round(1 / S.kitById(state.kit).sync) + ' s).']);
+    if (isFinite(m.backgroundEV) && m.waterFraction > 0.05) {
+      if (m.backgroundEV < -3) adv.push(['info', 'The open-water background is ' + fmtEV(m.backgroundEV) + ': nearly black. Use a slower shutter or a wider aperture with less strobe power for blue or green water.']);
+      else if (m.backgroundEV > 1) adv.push(['info', 'The open-water background is ' + fmtEV(m.backgroundEV) + ': bright. A faster shutter darkens it without changing the strobe exposure.']);
+    }
+    $('advice').innerHTML = adv.map(function (a) { return '<li class="' + a[0] + '">' + a[1] + '</li>'; }).join('');
+  }
+
+  /* ---------------- snapshots, copy ---------------- */
+  var snaps = [];
+  $('btnSnap').addEventListener('click', function () {
+    finalRender();
+    var c = document.createElement('canvas'); c.width = 360; c.height = 240;
+    c.getContext('2d').drawImage(glCanvas, 0, 0, 360, 240);
+    var m = lastMetrics || {};
+    var place = state.placement ? S.PLACEMENTS.filter(function (p) { return p.id === state.placement; })[0].name : 'Custom placement';
+    var cap = place + '\nhaze ' + pct(m.veil) + ' · specks ≈ ' + (m.specks ? Math.round(m.specks.bright) : '–') + ' · even ' + (isFinite(m.subjectRange && m.subjectRange[1]) ? (m.subjectRange[1] - m.subjectRange[0]).toFixed(1) + ' EV' : '–');
+    snaps.unshift({ src: c.toDataURL('image/jpeg', 0.85), cap: cap, water: S.makeWater(state.water, { visibility: state.visibility }).name + ', ' + state.visibility.toFixed(1) + ' m' });
+    snaps = snaps.slice(0, 6);
+    renderSnaps(); toast('Snapshot saved below the advice');
+  });
+  $('btnClear').addEventListener('click', function () { snaps = []; renderSnaps(); });
+  function renderSnaps() {
+    var el = $('snaps'); el.textContent = '';
+    if (!snaps.length) { var p = document.createElement('p'); p.className = 'empty'; p.textContent = 'Save snapshots to compare strobe positions side by side.'; el.appendChild(p); return; }
+    snaps.forEach(function (s) {
+      var f = document.createElement('figure'); f.className = 'snap';
+      var img = document.createElement('img'); img.src = s.src; img.alt = 'Snapshot: ' + s.cap.split('\n')[0];
+      var cap = document.createElement('figcaption'); cap.textContent = s.cap + '\n' + s.water; cap.style.whiteSpace = 'pre-line';
+      f.appendChild(img); f.appendChild(cap); el.appendChild(f);
+    });
+  }
+  $('btnCopy').addEventListener('click', function () {
+    var m = lastMetrics || {};
+    var out = { kit: state.kit, lens: state.lens, aperture: state.N, shutter_s: state.shutter, iso: state.iso, scene: state.scene, subject_distance_m: state.Z, camera_tilt_deg: state.tilt,
+      water: state.water, visibility_m: state.visibility, specks_per_litre: state.specks, depth_m: state.depth, daylight: state.sky, ttl: state.ttl,
+      strobes: state.strobes.map(function (st, i) { return { on: st.on, model: st.model, power_ev: +powerOf(i).toFixed(2), position_m: st.pos.map(function (x) { return +x.toFixed(3); }), angle_out_deg: +((i === 0 ? -1 : 1) * st.yaw).toFixed(1), tilt_deg: +st.pitch.toFixed(1) }; }),
+      results: { subject_ev: +(m.subjectEV || 0).toFixed(2), haze_over_subject: +(m.veil || 0).toFixed(3), bright_specks: m.specks ? Math.round(m.specks.bright) : null, deep_shadow_fraction: +(m.shadowDeep || 0).toFixed(3), red_loss_ev: isFinite(m.redLoss) ? +m.redLoss.toFixed(2) : null } };
+    var text = JSON.stringify(out, null, 2);
+    var done = function () { toast('Settings and results copied as JSON'); };
+    var fail = function () { toast('Copy was blocked by the browser'); };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, fail); else fail();
+  });
+  var toastT;
+  function toast(msg) { var t = $('toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(function () { t.classList.remove('show'); }, 2200); }
+
+  /* ---------------- content sections ---------------- */
+  if (window.StrobeContent) {
+    var C = window.StrobeContent;
+    $('whyBody').innerHTML = C.why; $('rulesBody').innerHTML = C.rules; $('strobeBody').innerHTML = C.strobes;
+    $('modelBody').innerHTML = C.model; $('exBody').innerHTML = C.exercises; $('refBody').innerHTML = C.references;
+  }
+
+  /* ---------------- start ---------------- */
+  applyWater(state.water);
+  applyPlacement('aimed');
+  var ro = new ResizeObserver(function () { update(false); });
+  ro.observe($('photo')); ro.observe($('top'));
+  var mq = window.matchMedia('(prefers-color-scheme: dark)');
+  if (mq.addEventListener) mq.addEventListener('change', function () { drawViews(false); });
+  window.__strobeLab = { state: state, S: S, update: update, views: views, metrics: function () { return lastMetrics; }, ttl: function () { return ttlShift; } };
+  update(false);
+})();
+</script>
+</body>
+</html>

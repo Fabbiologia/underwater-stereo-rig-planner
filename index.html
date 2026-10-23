@@ -65,6 +65,10 @@ a { color: var(--accent); }
 .brand .mark { width: 26px; height: 26px; border-radius: 50%; background: radial-gradient(circle at 35% 35%, var(--accent) 0 38%, transparent 40%), conic-gradient(from 200deg, var(--camA) 0 40%, var(--camB) 40% 80%, var(--ov) 80% 100%); flex: none; }
 .top h1 { font-size: 22px; font-weight: 700; letter-spacing: 0.01em; }
 .tagline { margin: 0; color: var(--ink-2); font-size: 13px; flex: 1 1 320px; min-width: 0; }
+.tabs { display: flex; gap: 2px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 2px; }
+.tabs a { text-decoration: none; color: var(--ink-2); padding-block: 5px; padding-inline: 11px; border-radius: 6px; font-weight: 500; font-size: 13px; }
+.tabs a:hover { background: var(--panel-2); }
+.tabs a[aria-current="page"] { background: var(--accent); color: var(--accent-ink); }
 .top-actions { display: flex; gap: 8px; }
 .btn { border: 1px solid var(--line); background: var(--panel); color: var(--ink); border-radius: var(--radius); padding-block: 6px; padding-inline: 11px; cursor: pointer; font-weight: 500; font-size: 13px; }
 .btn:hover { border-color: var(--accent); }
@@ -186,6 +190,7 @@ details.theory li { margin-bottom: 4px; }
 <div class="app">
   <header class="top">
     <div class="brand"><span class="mark" aria-hidden="true"></span><h1>Underwater Stereo Rig Planner</h1></div>
+    <nav class="tabs" aria-label="Tools"><a href="index.html" aria-current="page">Stereo rig planner</a><a href="strobes.html">Strobe lighting lab</a></nav>
     <p class="tagline">Two flat-port action cameras under water: refraction-corrected field of view, stereo overlap and depth precision for any baseline, convergence angle and working distance.</p>
     <div class="top-actions"><button class="btn" id="btnCopy" type="button">Copy settings &amp; results</button></div>
   </header>

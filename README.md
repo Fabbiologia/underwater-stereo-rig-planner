@@ -1,3 +1,24 @@
+# Underwater imaging tools
+
+Two browser tools for underwater photography and photogrammetry, published with GitHub Pages:
+
+- **Stereo rig planner** (`index.html`): field of view, overlap and depth precision for two action cameras behind flat or dome ports.
+- **Strobe lighting lab** (`strobes.html`): place one or two underwater strobes and see the photograph they make, with beam cones, shadows, backscatter haze and specks, and colour loss, from clear tropical water to Plymouth Sound. Built for the MRes advanced underwater photography practical, with the INON Z-330 and S-2000 strobes, a Canon G9 X Mark II compact kit and a full-frame housing.
+
+## Strobe lighting lab
+
+Every pixel of the photograph is ray traced on the graphics card from the camera's entrance pupil through the port into the water. Along each ray it adds the strobe light reflected by the scene (beam profile, inverse square, exponential attenuation, soft shadows from the strobe window), single-scattering backscatter from the water (Fournier–Forand phase function, b_b/b = 0.0183), procedural marine-snow specks blurred by the lens's defocus, and approximate daylight. Exposure follows the ISO exposure equation, with the strobe output calibrated from INON's guide numbers. Strobes are dragged in top and side diagrams that also show where the backscatter is made. The same model runs on the CPU (`strobe-physics.js`) to give the numbers in the results panel.
+
+| File | Purpose |
+|---|---|
+| `strobes.html` | Page, controls, diagrams, results |
+| `strobe-physics.js` | Physics, equipment data, scenes, CPU reference renderer and metrics (Node-testable) |
+| `strobe-render.js` | WebGL 2 renderer (the GLSL shader) |
+| `strobe-content.js` | Teaching text, exercises and references shown on the page |
+| `strobe_notes.md` | Equations, data, calibration choices, validation and sources |
+
+It needs a browser with WebGL 2 (any current Chrome, Edge, Firefox or Safari). The "Fast" render quality helps on older laptops and phones.
+
 # Underwater Stereo Rig Planner
 
 Interactive 3-D planning tool for stereo photogrammetry with flat-port action cameras (GoPro HERO13 Black, DJI Osmo Action 5 Pro, or any custom camera) under water. Change the baseline, convergence angle, working distance, lens mode and water properties and the model recomputes:
