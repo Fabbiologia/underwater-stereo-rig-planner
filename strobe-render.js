@@ -85,6 +85,7 @@ uniform float uRmax;
 uniform uint uSeed;
 uniform float uBoost;
 uniform float uPhaseConst;   // > 0: use this constant phase function (observer view, beam-shape teaching mode)
+uniform float uBsBoost;      // multiplies backscatter (haze and specks) in the camera view; 1 = true to physics
 
 /* ---------------- hashing and noise (identical to strobe-physics.js) ---------------- */
 uint pcg(uint v) { uint s = v * 747796405u + 2891336453u; uint w = ((s >> ((s >> 28u) + 4u)) ^ s) * 277803737u; return (w >> 22u) ^ w; }
@@ -494,6 +495,7 @@ void main() {
     vec3 o1, d1, o2, d2; getRay(pix + vec2(1.0, 0.0), o1, d1); getRay(pix + vec2(0.0, 1.0), o2, d2);
     float omegaPix = max(length(cross(d1 - rd, d2 - rd)), 1e-12);
     Lp = particles(pix, tEnd, omegaPix, c);
+    if (uView == 0) { Lbs *= uBsBoost; Lp *= uBsBoost; }
   }
   vec3 v;
   if (uMode == 1) v = uKexp * (Lbs + Lp);
@@ -665,6 +667,7 @@ void main() {
     // teaching mode: side-scatter level of the phase function (≈ value at 110°) applied in every direction, times the boost
     gl.uniform1f(L.uPhaseConst, observer && boost > 1 ? 0.0028 * boost : 0.0);
     gl.uniform1f(L.uBoost, 1.0);
+    gl.uniform1f(L.uBsBoost, observer ? 1.0 : (opts.bsBoost || 1));
     gl.drawArrays(gl.TRIANGLES, 0, 3);
   };
 

@@ -106,6 +106,8 @@
       note: 'Offshore western Channel in summer; 10–15 m visibility.' },
     { id: 'plymouth', name: 'Plymouth Sound, typical', a: [0.42, 0.14, 0.22], b: 0.82, specks: 5, S: 34, T: 14,
       note: 'Green coastal water; 3–6 m visibility.' },
+    { id: 'plymouth-murky', name: 'Plymouth Sound, murky day', a: [0.45, 0.16, 0.26], b: 1.44, specks: 10, S: 34, T: 13,
+      note: 'After wind or rain; about 3 m visibility.' },
     { id: 'turbid', name: 'Turbid estuary or harbour', a: [0.65, 0.38, 0.65], b: 2.8, specks: 20, S: 30, T: 14,
       note: 'After rain or in a harbour; about 1–2 m visibility.' }
   ];
@@ -286,11 +288,11 @@
    * tray: handle x (±), handle z, top of the handle (arm base) y.
    */
   var KITS = [
-    { id: 'compact', name: 'MRes compact kit: Canon G9 X Mark II + 1 × INON S-2000', lens: 'g9x-w',
+    { id: 'compact', name: 'MRes compact kit: Canon G9 X Mark II + 1 × INON S-2000', lens: 'g9x-w', nStrobes: 1,
       housing: { w: 0.150, h: 0.105, d: 0.095, front: -0.012 }, port: { type: 'flat', r: 0.032, len: 0.012 },
       tray: { x: 0.150, z: -0.060, top: 0.050, bottom: -0.130 }, arms: [0.203, 0.203],
       strobes: ['s2000d', 's2000d'], on: [true, false], N: 5.6, shutter: 1 / 125, iso: 200, sync: 1 / 2000 },
-    { id: 'big', name: 'Full-frame housing + 2 × INON Z-330', lens: 'ff16',
+    { id: 'big', name: 'Full-frame housing + 2 × INON Z-330', lens: 'ff16', nStrobes: 2,
       housing: { w: 0.330, h: 0.215, d: 0.150, front: -0.100 }, port: { type: 'dome', r: 0.10, len: 0 },
       tray: { x: 0.215, z: -0.180, top: 0.075, bottom: -0.160 }, arms: [0.203, 0.254],
       strobes: ['z330', 'z330'], on: [true, true], N: 8, shutter: 1 / 125, iso: 200, sync: 1 / 200 }
@@ -667,13 +669,13 @@
   /* Placement presets (rig frame), computed for a kit and a distance Z    */
   /* ------------------------------------------------------------------ */
   var PLACEMENTS = [
-    { id: 'aimed', name: '10 and 2 o’clock, aimed at the subject' },
-    { id: 'edge', name: 'Wide angle: out, back, angled out (edge lighting)' },
-    { id: 'parallel', name: 'Far out and behind the port, beams parallel' },
-    { id: 'close', name: 'Close to the port, aimed straight ahead (classic mistake)' },
-    { id: 'macro', name: 'Macro: in close, angled in at the subject' },
-    { id: 'top', name: 'Single strobe overhead (top lighting)' },
-    { id: 'side', name: 'Single strobe from the side (texture)' }
+    { id: 'aimed', name: '10 and 2 o’clock, aimed at the subject', one: '10 o’clock, aimed at the subject' },
+    { id: 'edge', name: 'Wide angle: out, back, angled out (edge lighting)', one: 'Out, back, angled out (edge lighting)' },
+    { id: 'parallel', name: 'Far out and behind the port, beams parallel', one: 'Far out and behind the port, beam parallel' },
+    { id: 'close', name: 'Close to the port, aimed straight ahead (classic mistake)', one: 'Close to the port, aimed straight ahead (classic mistake)' },
+    { id: 'macro', name: 'Macro: in close, angled in at the subject', one: 'Macro: in close, angled in at the subject' },
+    { id: 'top', name: 'Single strobe overhead (top lighting)', one: 'Overhead (top lighting)' },
+    { id: 'side', name: 'Single strobe from the side (texture)', one: 'From the side (texture)' }
   ];
   function placement(id, kit, Z, models) {
     var T = [0, 0, Z], hw = kit.housing.w / 2, out = [];
@@ -696,6 +698,7 @@
       case 'top': out = [mk(-1, [-0.02, kit.housing.h / 2 + 0.22, -0.02], 'target'), mk(1, [hw + 0.12, 0.13, -0.03], 'target')]; out[1].on = false; break;
       case 'side': out = [mk(-1, [-(hw + 0.30), 0.04, 0.12], 'target'), mk(1, [hw + 0.12, 0.13, -0.03], 'target')]; out[1].on = false; break;
     }
+    if (kit.nStrobes === 1) out[1].on = false;
     return out;
   }
 

@@ -30,6 +30,7 @@ Not modelled: multiple scattering and forward-scatter blur (important beyond 2�
 | Clear tropical reef | 0.32 / 0.065 / 0.022 | 0.08 | 0.145 | 33 m | 0.2 |
 | Temperate shelf, good day | 0.36 / 0.09 / 0.10 | 0.30 | 0.39 | 12 m | 1 |
 | Plymouth Sound, typical | 0.42 / 0.14 / 0.22 | 0.82 | 0.96 | 5 m | 5 |
+| Plymouth Sound, murky day (default) | 0.45 / 0.16 / 0.26 | 1.44 | 1.60 | 3 m | 10 |
 | Turbid estuary or harbour | 0.65 / 0.38 / 0.65 | 2.8 | 3.18 | 1.5 m | 20 |
 
 For comparison, Petzold (1972) measured c(530 nm) = 0.151 (clear, Bahamas), 0.398 (coastal) and 2.19 m⁻¹ (San Diego Harbor). Near station L4 suspended matter is usually under 0.5 mg/L, rising to 1–5 mg/L after rain or dredging; the lower Tamar carries 20 mg/L and up to 150–200 mg/L on spring tides. With about 0.5 m²/g of particle attenuation, that is c ≈ 0.3–0.8 m⁻¹ (6–16 m visibility) at L4 and c ≈ 2.7 m⁻¹ (about 2 m) near the Tamar mouth.
@@ -75,6 +76,8 @@ Canon PowerShot G9 X Mark II: 1.0-type sensor 13.2 × 8.8 mm, 10.2–30.6 mm (28
 | 10 and 2 o'clock, aimed at the subject | 21 % | 33 | 19 cm | −2.8 EV |
 | Far out and behind the port, beams parallel | 11 % | 33 | 27 cm | −1.8 EV |
 | Out, back and angled out (edge lighting) | 8 % | 17 | 35 cm | −1.5 EV |
+
+In the default murky-day water the same comparison is much starker: haze over the subject is about 110 % (brighter than the subject itself) with the strobes beside the port, 90 % at 10 and 2 o'clock and 30 % with edge lighting. The photograph's optional "backscatter shown 3× or 10× stronger" setting multiplies only the scattered light (haze and specks) in the rendered image, for demonstrations in clearer water; the photo is labelled when it is on, and all numbers stay unscaled.
 
 ## 5. Practical rules used for the advice
 

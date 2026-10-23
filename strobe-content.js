@@ -96,8 +96,8 @@
 
   C.exercises = [
     '<ol>',
-    '<li><b>The classic mistake.</b> Full-frame kit, Plymouth Sound water, sea-fan scene. Choose “Close to the port, aimed straight ahead”, note the haze, the specks and where half the haze comes from. Switch the photograph to “Backscatter only”. Now choose “Wide angle: out, back, angled out”. By how much did each number change, and why?</li>',
-    '<li><b>Drag it yourself.</b> Start from “10 and 2 o’clock”. Without using the presets, drag the strobes in the top view until the haze over the subject is below 8 % while the subject stays evenly lit (under 1 EV). Save a snapshot and compare it with the preset.</li>',
+    '<li><b>The classic mistake.</b> Full-frame kit, Plymouth Sound murky day, sea-fan scene. Choose “Close to the port, aimed straight ahead”, note the haze, the specks and where half the haze comes from. Switch the photograph to “Backscatter only”. Now choose “Wide angle: out, back, angled out”. By how much did each number change, and why?</li>',
+    '<li><b>Drag it yourself.</b> Start from “10 and 2 o’clock”. Without using the presets, drag the strobes in the behind and top views until the haze over the subject is below 30 % while the subject stays evenly lit (under 1 EV). Watch the amber overlap in the behind view shrink. Save a snapshot and compare it with the preset.</li>',
     '<li><b>Visibility ladder.</b> With your best placement, set visibility to 15, 8, 5, 3 and 1.5 m. Record haze and specks. At what visibility does even good placement fail? Compare with the rule of keeping the subject within a quarter to a third of the visibility.</li>',
     '<li><b>Get closer.</b> In 5 m visibility, compare the subject at 2 m with the subject at 0.6 m. What happens to the haze, the red loss and the strobe power TTL chooses?</li>',
     '<li><b>Shadows.</b> Use the coverage test scene. Spread the strobes far apart and look at the white ball’s two shadows. Turn auto power off and set strobe B two stops lower: one shadow fades. Then try a single strobe overhead. Which light gives the softest shadow edge, and why (look at the “light size” column)?</li>',
