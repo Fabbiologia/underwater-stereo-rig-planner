@@ -92,12 +92,13 @@ input[type="range"] { width: 100%; min-width: 0; accent-color: var(--accent); ma
 .photo-bar .seg { flex: none; }
 .photo-bar .seg button { padding-inline: 10px; }
 .photo-bar select { width: auto; max-width: 100%; }
-.photo-bar #btnEnlarge { margin-left: auto; }
+.photo-bar .btn-enlarge { margin-left: auto; }
 .status { font-size: 11.5px; color: var(--muted); font-family: var(--font-mono); }
 .photo { position: relative; width: 100%; aspect-ratio: 3 / 2; max-width: 100%; background: #000; border-radius: 6px; overflow: hidden; }
 .photo canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 .photo #gl { touch-action: none; }
-.photo #ov { pointer-events: none; }
+.photo #ov, .photo #ov2 { pointer-events: none; }
+.box-title { font-family: var(--font-display); font-size: 15px; font-weight: 600; }
 .photo.obs { cursor: grab; touch-action: none; }
 .photo.obs.dragging { cursor: grabbing; }
 .obs-bar { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
@@ -230,14 +231,9 @@ details.theory li { margin-bottom: 4px; }
   <main class="stage">
     <div class="box photo-card" id="photoBox">
       <div class="photo-bar">
-        <div class="seg" role="group" aria-label="Viewpoint"><button type="button" data-view="camera" aria-pressed="true">Camera</button><button type="button" data-view="observer" aria-pressed="false">Observer</button></div>
+        <b class="box-title">Camera view</b>
         <select id="mode" aria-label="What the photograph shows"><option value="photo">Photograph</option><option value="backscatter">Backscatter only</option><option value="strobe">Strobe light only (no daylight)</option><option value="air">Same scene in air</option><option value="exposure">Exposure map</option></select>
-        <button class="btn small" type="button" id="btnEnlarge" aria-pressed="false">Enlarge</button>
-      </div>
-      <div class="obs-bar" id="obsBar" hidden>
-        <div class="seg" role="group" aria-label="Observer viewpoint"><button type="button" data-obs="34" aria-pressed="true">3/4</button><button type="button" data-obs="side" aria-pressed="false">Side</button><button type="button" data-obs="above" aria-pressed="false">Above</button><button type="button" data-obs="behind" aria-pressed="false">Behind</button></div>
-        <div class="seg" role="group" aria-label="Zoom"><button type="button" data-zoom="-1" aria-label="Zoom out">−</button><button type="button" data-zoom="1" aria-label="Zoom in">+</button></div>
-        <p class="hint">Drag to turn, scroll or pinch to zoom, double-click to reset</p>
+        <button class="btn small btn-enlarge" type="button" id="btnEnlarge" aria-pressed="false">Enlarge</button>
       </div>
       <div class="photo" id="photo">
         <canvas id="gl" aria-label="Simulated photograph from the camera"></canvas>
@@ -248,11 +244,21 @@ details.theory li { margin-bottom: 4px; }
       </div>
       <div class="keys"><span class="status" id="status"></span></div>
     </div>
-    <figure class="box view">
-      <figcaption><b>Behind view</b><span class="seg" role="group" aria-label="Where to show the beams"><button type="button" data-slice="near" aria-pressed="true">Beams near the port</button><button type="button" data-slice="subject" aria-pressed="false">Beams at the subject</button></span></figcaption>
-      <canvas id="back" tabindex="0" aria-label="Behind view of the rig, as seen over the photographer's shoulder, with clock positions; drag strobes to move them left, right, up and down"></canvas>
-      <div class="keys"><span><i style="background:var(--sA)"></i>Strobe A beam</span><span class="keyB"><i style="background:var(--sB)"></i>Strobe B beam</span><span><i style="background:var(--haze)"></i>Beam inside the lens’s view</span><span id="backSlice"></span></div>
-    </figure>
+    <div class="box photo-card" id="obsBox">
+      <div class="photo-bar">
+        <b class="box-title">Observer view</b>
+        <div class="seg" role="group" aria-label="Observer viewpoint"><button type="button" data-obs="34" aria-pressed="true">3/4</button><button type="button" data-obs="side" aria-pressed="false">Side</button><button type="button" data-obs="above" aria-pressed="false">Above</button><button type="button" data-obs="behind" aria-pressed="false">Behind</button></div>
+        <div class="seg" role="group" aria-label="Zoom"><button type="button" data-zoom="-1" aria-label="Zoom out">−</button><button type="button" data-zoom="1" aria-label="Zoom in">+</button></div>
+        <button class="btn small btn-enlarge" type="button" id="btnEnlargeObs" aria-pressed="false">Enlarge</button>
+      </div>
+      <div class="photo obs" id="obsPhoto">
+        <canvas id="gl2" aria-label="The rig seen from outside, with the strobe beams in the water; drag to turn, scroll or pinch to zoom"></canvas>
+        <canvas id="ov2" aria-hidden="true"></canvas>
+        <div class="tag" id="obsTag"></div>
+        <div class="msg" id="glMsg2" hidden></div>
+      </div>
+      <div class="keys"><span class="status">Drag to turn, scroll or pinch to zoom, double-click to reset</span></div>
+    </div>
     <figure class="box view">
       <figcaption><b>Top view</b><span>Drag a strobe to move it; drag its dot to aim it</span></figcaption>
       <canvas id="top" tabindex="0" aria-label="Top view of the rig, strobe beams and backscatter zone; drag strobes to move or aim them"></canvas>
@@ -276,12 +282,11 @@ details.theory li { margin-bottom: 4px; }
       <div class="body">
         <ol>
           <li>Pick the kit, the scene and the water. The photograph is the camera’s view, rendered from the physics; it updates as you change anything.</li>
-          <li>Drag the coloured strobe heads in the behind, top and side views. The behind view is what you see over your own shoulder, with the clock positions photographers use (10 and 2 o’clock). In the top and side views the small dot in front of each head aims it. With “Keep aim” on, a strobe keeps pointing at the subject (plus any angle you add) as you move it.</li>
-          <li>The behind view also shows each beam’s footprint and the lens’s view on a slice of water: near the port, where their overlap (amber) makes backscatter, or at the subject, where the overlap shows coverage.</li>
+          <li>Drag the coloured strobe heads in the top and side views; the small dot in front of each head aims it. With “Keep aim” on, a strobe keeps pointing at the subject (plus any angle you add) as you move it.</li>
           <li>The amber cloud in the diagrams shows where the light that reaches the lens as backscatter is scattered: it lives where the beams overlap the camera’s field of view. Shrink it and the haze and specks in the photograph go away.</li>
           <li>Switch the photograph to “Backscatter only” to see just the light scattered by the water, “Same scene in air” to see coverage and shadows without water, or “Exposure map” to read brightness in stops. “Enlarge” makes the photograph full width.</li>
           <li>The default water is a murky day in Plymouth Sound (about 3 m visibility), where placement makes a dramatic difference. For a lecture demonstration in clearer water, “Backscatter in the photograph” can show the scattered light 3 or 10 times stronger; the photograph then says so, and the numbers stay true to physics.</li>
-          <li>The observer view shows the rig from outside, with the beams made visible by the water. Drag to turn around it, scroll or pinch to zoom, or pick 3/4, Side, Above or Behind; double-click resets. “See through the water” clears the water between you and the rig so the camera and beams are easy to see, while the beams themselves still use the real water.</li>
+          <li>The observer view shows the rig from outside, with the beams made visible by the water. Drag to turn around it, scroll or pinch to zoom, or pick 3/4, Side, Above or Behind (over the photographer’s shoulder, the clock positions view); double-click resets. “See through the water” clears the water between you and the rig so the camera and beams are easy to see, while the beams themselves still use the real water.</li>
           <li>Save snapshots to compare placements; the numbers on the right explain each result.</li>
         </ol>
       </div>
@@ -336,7 +341,7 @@ details.theory li { margin-bottom: 4px; }
       { on: true, model: 'z330', offset: 0, pos: [0.3, 0.13, -0.03], yaw: -15, pitch: -6 }
     ],
     ttl: true, aimLock: true,
-    view: 'camera', mode: 'photo', quality: 'high', volShadows: true, boost: 5, bsBoost: 1, slice: 'near', enlarged: false,
+    mode: 'photo', quality: 'high', volShadows: true, boost: 5, bsBoost: 1,
     obs: { az: -64, el: 24, zoom: 1, preset: '34' }, seeThrough: true
   };
   var ttlShift = -4;
@@ -363,17 +368,18 @@ details.theory li { margin-bottom: 4px; }
   function css(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
 
   /* ---------------- WebGL renderer ---------------- */
-  var glCanvas = $('gl'), ov = $('ov'), renderer = null;
-  try { renderer = new window.StrobeRenderer(glCanvas); }
-  catch (e) { $('glMsg').hidden = false; $('glMsg').textContent = 'The photograph needs WebGL 2, which this browser did not provide (' + e.message + '). The diagrams and numbers still work.'; console.error(e); }
+  var glCanvas = $('gl'), renderer = null, glObs = $('gl2'), ov = $('ov2'), rendererObs = null;
+  function glFail(id, what, e) { $(id).hidden = false; $(id).textContent = what + ' needs WebGL 2, which this browser did not provide (' + e.message + '). The diagrams and numbers still work.'; console.error(e); }
+  try { renderer = new window.StrobeRenderer(glCanvas); } catch (e) { glFail('glMsg', 'The photograph', e); }
+  try { rendererObs = new window.StrobeRenderer(glObs); } catch (e) { glFail('glMsg2', 'The observer view', e); }
 
-  function sizeCanvas(scale) {
-    var r = $('photo').getBoundingClientRect();
-    // render at least 1.5× the CSS size (up to 2× on high-density screens) so small details and specks stay crisp
-    var dpr = Math.max(1.5, Math.min(window.devicePixelRatio || 1, 2));
+  /** Size a render canvas to its box: oversample the photograph for crisp specks, the observer less to save time. */
+  function sizeCanvasFor(canvas, box, scale, maxDpr) {
+    var r = box.getBoundingClientRect();
+    var dpr = Math.max(Math.min(1.5, maxDpr), Math.min(window.devicePixelRatio || 1, maxDpr));
     var W = Math.max(240, Math.round(r.width * dpr * scale)), H = Math.round(W * 2 / 3);
     if (W > 1600) { W = 1600; H = Math.round(W * 2 / 3); }
-    if (glCanvas.width !== W || glCanvas.height !== H) { glCanvas.width = W; glCanvas.height = H; }
+    if (canvas.width !== W || canvas.height !== H) { canvas.width = W; canvas.height = H; }
     return W;
   }
   var OBS_VIEWS = { '34': { az: -64, el: 24 }, side: { az: -90, el: 6 }, above: { az: -12, el: 76 }, behind: { az: 0, el: 16 } };
@@ -387,28 +393,32 @@ details.theory li { margin-bottom: 4px; }
   }
   var seed = 7;
   function renderPhoto(quality) {
-    var W = sizeCanvas(quality === 'draft' ? 0.5 : 1);
+    var W = sizeCanvasFor(glCanvas, $('photo'), quality === 'draft' ? 0.5 : 1, 2);
     var world = S.buildWorld(effectiveState(), W);
     lastWorld = world;
     if (!renderer) return world;
-    var t0 = performance.now();
-    var ob = state.view === 'observer' ? observerCam(world, W) : null;
+    renderer.render(world, { view: 'camera', mode: state.mode, quality: quality, boost: state.boost, seed: seed, volShadows: state.volShadows, bsBoost: state.bsBoost });
+    $('status').textContent = (quality === 'draft' ? 'Fast preview' : 'Detailed render') + ' · ' + glCanvas.width + ' × ' + glCanvas.height + ' px' + (state.bsBoost > 1 ? ' · backscatter exaggerated ×' + state.bsBoost + ' for teaching; the numbers stay true to physics' : '');
+    $('evLegend').hidden = state.mode !== 'exposure';
+    $('photoTag').textContent = fmtN(state.N) + ' · 1/' + Math.round(1 / state.shutter) + ' s · ISO ' + state.iso + (state.bsBoost > 1 ? ' · backscatter shown ×' + state.bsBoost : '');
+    return world;
+  }
+  function renderObserver(quality) {
+    if (!rendererObs) return;
+    var W = sizeCanvasFor(glObs, $('obsPhoto'), quality === 'draft' ? 0.5 : 1, 1.5);
+    var world = S.buildWorld(effectiveState(), W);
+    var ob = observerCam(world, W);
     // the observer looks through more water than the camera: compensate most of that loss so the scene stays readable
     var cLos = state.seeThrough ? Math.min(world.water.c[1], 0.12) : world.water.c[1];
-    var evShift = ob ? 0.6 * cLos * ob.focus / Math.LN2 : 0;
-    renderer.render(world, { view: state.view, mode: state.mode, quality: quality, observer: ob, boost: state.boost, seed: seed, volShadows: state.volShadows, evShift: evShift, bsBoost: state.bsBoost, seeThrough: state.seeThrough });
+    var evShift = 0.6 * cLos * ob.focus / Math.LN2;
+    rendererObs.render(world, { view: 'observer', mode: state.mode === 'air' ? 'air' : 'photo', quality: quality, observer: ob, boost: state.boost, seed: seed, volShadows: state.volShadows, evShift: evShift, seeThrough: state.seeThrough });
     drawOverlay(world, ob, W);
-    var dt = performance.now() - t0;
-    $('status').textContent = (quality === 'draft' ? 'Fast preview' : 'Detailed render') + ' · ' + glCanvas.width + ' × ' + glCanvas.height + ' px' + (state.bsBoost > 1 && state.view === 'camera' ? ' · backscatter exaggerated ×' + state.bsBoost + ' for teaching; the numbers stay true to physics' : '');
-    $('evLegend').hidden = state.mode !== 'exposure';
-    var tag = state.view === 'observer' ? 'Observer' + (state.seeThrough ? ' · see-through water' : '') + (state.boost > 1 ? ' · beam shapes' : '') : fmtN(state.N) + ' · 1/' + Math.round(1 / state.shutter) + ' s · ISO ' + state.iso + (state.bsBoost > 1 ? ' · backscatter shown ×' + state.bsBoost : '');
-    $('photoTag').textContent = tag;
-    return world;
+    $('obsTag').textContent = (state.seeThrough ? 'See-through water' : 'True water') + (state.boost > 1 ? ' · beam shapes' : ' · true scattering');
   }
 
   /* overlay: camera frustum and beam axes in the observer view */
   function drawOverlay(world, ob, W) {
-    var r = $('photo').getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+    var r = $('obsPhoto').getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
     ov.width = Math.round(r.width * dpr); ov.height = Math.round(r.height * dpr);
     var g = ov.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, r.width, r.height);
     if (!ob) return;
@@ -477,7 +487,7 @@ details.theory li { margin-bottom: 4px; }
   function update(interactive) {
     syncControls();
     if (interactive) {
-      if (!rafId) rafId = requestAnimationFrame(function () { rafId = 0; quickTTL(); renderPhoto('draft'); drawViews(true); });
+      if (!rafId) rafId = requestAnimationFrame(function () { rafId = 0; quickTTL(); renderPhoto('draft'); renderObserver('draft'); drawViews(true); });
       clearTimeout(finalTimer); finalTimer = setTimeout(finalRender, 260);
     } else {
       clearTimeout(finalTimer); finalTimer = setTimeout(finalRender, 10);
@@ -486,44 +496,23 @@ details.theory li { margin-bottom: 4px; }
   function finalRender() {
     quickTTL();
     renderPhoto(state.quality);
+    renderObserver(state.quality);
     drawViews(false);
     syncControls();
     computeResults();
   }
 
+  /* observer-only redraws (turning or zooming the observer does not change the photograph) */
+  var obsRaf = 0, obsTimer = 0;
+  function updateObs(interactive) {
+    if (!obsRaf) obsRaf = requestAnimationFrame(function () { obsRaf = 0; renderObserver(interactive ? 'draft' : state.quality); });
+    clearTimeout(obsTimer);
+    if (interactive) obsTimer = setTimeout(function () { renderObserver(state.quality); }, 220);
+  }
+
   /* ---------------- 2-D rig diagrams ---------------- */
-  var views = { top: { canvas: $('top') }, side: { canvas: $('side') }, back: { canvas: $('back') } };
+  var views = { top: { canvas: $('top') }, side: { canvas: $('side') } };
   function nStrobes() { return S.kitById(state.kit).nStrobes || 2; }
-  function sliceDist(world) { return state.slice === 'subject' ? world.Z : clamp(world.Z * 0.35, 0.05, 0.35); }
-  /** The lens's field of view cut by the plane z = zs (rig frame), as a polygon. */
-  function fovSlice(world, zs) {
-    var cam = world.cam, pts = [], corners = [[-1, -1], [1, -1], [1, 1], [-1, 1]];
-    for (var e = 0; e < 4; e++) {
-      var a = corners[e], b = corners[(e + 1) % 4];
-      for (var i = 0; i < 10; i++) {
-        var t = i / 10, r = S.cameraRayRig(cam, (a[0] + (b[0] - a[0]) * t) * cam.W / 2, (a[1] + (b[1] - a[1]) * t) * cam.H / 2, world.n);
-        if (!r || r.d[2] < 0.02) continue;
-        var k = (zs - r.o[2]) / r.d[2]; if (k > 0) pts.push([r.o[0] + r.d[0] * k, r.o[1] + r.d[1] * k]);
-      }
-    }
-    return pts;
-  }
-  /** Half-power footprint of strobe i on the plane z = zs (rig frame); null when the strobe is past the plane. */
-  function beamSlice(i, zs) {
-    var st = state.strobes[i], m = S.strobeModel(st.model), ax = S.strobeAxis(st.yaw, st.pitch), fr = S.strobeFrame(ax);
-    if (st.pos[2] >= zs - 0.01) return null;
-    var thx = m.beamH / 2 * DEG, thy = m.beamV / 2 * DEG, pts = [];
-    for (var k = 0; k < 64; k++) {
-      var ph = k / 64 * 2 * Math.PI, c = Math.cos(ph), sn = Math.sin(ph);
-      var th = 1 / Math.sqrt(c * c / (thx * thx) + sn * sn / (thy * thy));
-      var d = S.add(S.mul(ax, Math.cos(th)), S.mul(S.add(S.mul(fr.rt, c), S.mul(fr.up, sn)), Math.sin(th)));
-      if (d[2] < 0.03) continue;
-      var t = (zs - st.pos[2]) / d[2];
-      pts.push([st.pos[0] + d[0] * t, st.pos[1] + d[1] * t]);
-    }
-    return pts.length > 8 ? pts : null;
-  }
-  function rigPoint(world, p) { return S.worldToRig(world.tilt, p); }
   function setupView(kind, world) {
     var v = views[kind], c = v.canvas, dpr = window.devicePixelRatio || 1;
     var cw = c.clientWidth || 400, ch = c.clientHeight || 300;
@@ -534,15 +523,7 @@ details.theory li { margin-bottom: 4px; }
     var sx = 0, sy = 0, syMin = 0;
     state.strobes.forEach(function (s) { sx = Math.max(sx, Math.abs(s.pos[0])); sy = Math.max(sy, s.pos[1]); syMin = Math.min(syMin, s.pos[1]); zf = Math.max(zf, s.pos[2] + 0.12); zb = Math.min(zb, s.pos[2] - 0.15); });
     var pad = 18, u0, u1, v0, v1;
-    if (kind === 'back') {
-      var zs = sliceDist(world), fp = fovSlice(world, zs), fx = 0, fyl = 0, fyh = 0;
-      fp.forEach(function (q) { fx = Math.max(fx, Math.abs(q[0])); fyl = Math.min(fyl, q[1]); fyh = Math.max(fyh, q[1]); });
-      var lim = state.slice === 'subject' ? 2.2 : 1.0;
-      var xb = Math.max(0.24, sx + 0.16, kit.tray.x + 0.14, kit.housing.w / 2 + 0.12, Math.min(fx, lim) + 0.04);
-      u0 = -xb; u1 = xb;
-      v0 = Math.min(-0.2, syMin - 0.12, kit.tray.bottom - 0.06, Math.max(fyl, -lim) - 0.04);
-      v1 = Math.max(0.22, sy + 0.14, Math.min(fyh, lim) + 0.04);
-    } else if (kind === 'top') {
+    if (kind === 'top') {
       var xr = Math.max(0.22, sx + 0.14, kit.tray.x + 0.12, size * 0.9, Math.min(Z * Math.tan(Math.min(world.cam.hfov, 120) / 2 * DEG), Z * 1.4) + 0.05);
       u0 = -xr; u1 = xr; v0 = zb; v1 = zf;
     } else {
@@ -558,7 +539,7 @@ details.theory li { margin-bottom: 4px; }
     v.Y = function (w) { return ch - pad - (w - v0) * s; };
     v.U = function (x) { return u0 + (x - pad) / s; };
     v.V = function (y) { return v0 + (ch - pad - y) / s; };
-    v.proj = kind === 'top' ? function (p) { return [p[0], p[2]]; } : kind === 'side' ? function (p) { return [p[2], p[1]]; } : function (p) { return [p[0], p[1]]; };
+    v.proj = kind === 'top' ? function (p) { return [p[0], p[2]]; } : function (p) { return [p[2], p[1]]; };
     v.scr = function (p) { var q = v.proj(p); return [v.X(q[0]), v.Y(q[1])]; };
     return v;
   }
@@ -760,29 +741,6 @@ details.theory li { margin-bottom: 4px; }
       g.beginPath(); g.moveTo(B[0], B[1]); g.lineTo(E[0], E[1]); g.lineTo(M[0], M[1]); g.stroke(); g.lineCap = 'butt';
       [B, E].forEach(function (q) { g.fillStyle = ink; g.beginPath(); g.arc(q[0], q[1], 3.5, 0, Math.PI * 2); g.fill(); });
       var front = v.scr(pos), back = v.scr(S.sub(pos, S.mul(ax, m.bodyL)));
-      if (v.kind === 'back') {
-        // from behind: the round strobe body, an arrow showing where it points, and how far behind the port it sits
-        var mid = v.scr(S.sub(pos, S.mul(ax, m.bodyL * 0.5))), rr = Math.max(7, m.bodyD / 2 * v.s);
-        g.fillStyle = hexA(ink, 0.85); g.strokeStyle = col; g.lineWidth = 3;
-        g.beginPath(); g.arc(mid[0], mid[1], rr, 0, 2 * Math.PI); g.fill(); g.stroke();
-        var tip = [mid[0] + ax[0] * 70, mid[1] - ax[1] * 70];
-        if (Math.hypot(ax[0], ax[1]) > 0.03) {
-          g.strokeStyle = col; g.lineWidth = 2; g.beginPath(); g.moveTo(mid[0], mid[1]); g.lineTo(tip[0], tip[1]); g.stroke();
-          var ang = Math.atan2(tip[1] - mid[1], tip[0] - mid[0]);
-          g.fillStyle = col; g.beginPath(); g.moveTo(tip[0], tip[1]); g.lineTo(tip[0] - 9 * Math.cos(ang - 0.4), tip[1] - 9 * Math.sin(ang - 0.4)); g.lineTo(tip[0] - 9 * Math.cos(ang + 0.4), tip[1] - 9 * Math.sin(ang + 0.4)); g.closePath(); g.fill();
-        }
-        g.fillStyle = '#fff'; g.font = '700 11px "IBM Plex Sans", system-ui'; g.textAlign = 'center'; g.textBaseline = 'middle';
-        g.fillText(i === 0 ? 'A' : 'B', mid[0], mid[1] + 0.5); g.textAlign = 'start'; g.textBaseline = 'alphabetic';
-        // position and aim, written in this strobe's own corner so the two labels never collide
-        var zl = (i === 0 ? 'A: ' : 'B: ') + (pos[2] > 0.005 ? fmtLen(pos[2]) + ' ahead of port' : pos[2] < -0.005 ? fmtLen(-pos[2]) + ' behind port' : 'level with port');
-        var out = side * st.yaw, al = (Math.abs(out) < 0.5 ? 'straight' : Math.abs(out).toFixed(0) + '° ' + (out > 0 ? 'out' : 'in')) + ' · ' + (Math.abs(st.pitch) < 0.5 ? 'level' : Math.abs(st.pitch).toFixed(0) + '° ' + (st.pitch > 0 ? 'up' : 'down'));
-        g.font = '600 11px "IBM Plex Sans", system-ui'; g.fillStyle = col;
-        var cx = i === 0 ? 8 : v.cw - 8; g.textAlign = i === 0 ? 'left' : 'right';
-        g.fillText(zl, cx, 14); g.font = '11px "IBM Plex Mono", monospace'; g.fillStyle = css('--ink-2'); g.fillText(al, cx, 28);
-        g.textAlign = 'start';
-        v.handles.push({ i: i, kind: 'head', x: mid[0], y: mid[1] });
-        return;
-      }
       // body: rectangle from back to front along the projected axis
       var dx = front[0] - back[0], dy = front[1] - back[1], dl = Math.hypot(dx, dy) || 1, nx = -dy / dl, ny = dx / dl, hw = m.bodyD / 2 * v.s;
       g.fillStyle = hexA(ink, 0.85);
@@ -814,51 +772,12 @@ details.theory li { margin-bottom: 4px; }
     g.fillText(txt, x0, y0);
   }
   function polyPath(v, pts) { var g = v.g; g.beginPath(); pts.forEach(function (q, k) { var x = v.X(q[0]), y = v.Y(q[1]); if (k) g.lineTo(x, y); else g.moveTo(x, y); }); g.closePath(); }
-  function drawBack(v, world) {
-    var g = v.g, kit = world.kit, hs = kit.housing, ink = css('--ink'), zs = sliceDist(world);
-    var fov = fovSlice(world, zs);
-    var beams = state.strobes.map(function (st, i) { return st.on && i < nStrobes() ? beamSlice(i, zs) : null; });
-    beams.forEach(function (poly, i) {
-      if (!poly) return; var col = i === 0 ? css('--sA') : css('--sB');
-      polyPath(v, poly); g.fillStyle = hexA(col, 0.13); g.fill();
-      g.strokeStyle = hexA(col, 0.95); g.lineWidth = 1.4; g.setLineDash([6, 4]); g.stroke(); g.setLineDash([]);
-    });
-    if (fov.length > 3) {
-      g.save(); polyPath(v, fov); g.clip();
-      beams.forEach(function (poly) { if (!poly) return; polyPath(v, poly); g.fillStyle = hexA(css('--haze'), 0.42); g.fill(); });
-      g.restore();
-      polyPath(v, fov); g.strokeStyle = hexA(css('--ink-2'), 0.85); g.lineWidth = 1.3; g.stroke();
-    }
-    // clock positions around the lens axis, as photographers describe strobe positions
-    var Rd = Math.max(hs.w, hs.h) / 2 + 0.10, c0x = v.X(0), c0y = v.Y(0);
-    g.strokeStyle = hexA(css('--ink-2'), 0.35); g.lineWidth = 1; g.beginPath(); g.arc(c0x, c0y, Rd * v.s, 0, 2 * Math.PI); g.stroke();
-    g.font = '600 11px "IBM Plex Sans", system-ui'; g.textAlign = 'center'; g.textBaseline = 'middle';
-    for (var hr = 1; hr <= 12; hr++) {
-      var a = (90 - hr * 30) * DEG, x0 = c0x + Math.cos(a) * Rd * v.s, y0 = c0y - Math.sin(a) * Rd * v.s;
-      g.strokeStyle = hexA(css('--ink-2'), 0.5); g.beginPath(); g.moveTo(x0, y0); g.lineTo(c0x + Math.cos(a) * (Rd * v.s + 6), c0y - Math.sin(a) * (Rd * v.s + 6)); g.stroke();
-      if (hr % 3 === 0 || hr === 10 || hr === 2) { g.fillStyle = (hr === 10 || hr === 2) ? css('--ink') : css('--muted'); g.fillText(String(hr), c0x + Math.cos(a) * (Rd * v.s + 15), c0y - Math.sin(a) * (Rd * v.s + 15)); }
-    }
-    g.textAlign = 'start'; g.textBaseline = 'alphabetic';
-    // housing seen from behind, its screen, the lens position, handles and tray
-    var hx = hs.w / 2 * v.s, hy = hs.h / 2 * v.s;
-    g.fillStyle = hexA(ink, 0.85); g.fillRect(c0x - hx, c0y - hy, 2 * hx, 2 * hy);
-    g.fillStyle = 'rgba(120,170,200,0.35)'; g.fillRect(c0x - hx * 0.55, c0y - hy * 0.5, hx * 1.1, hy * 1.0);
-    g.strokeStyle = 'rgba(120,190,220,0.8)'; g.setLineDash([3, 3]); g.beginPath(); g.arc(c0x, c0y, kit.port.r * v.s, 0, 2 * Math.PI); g.stroke(); g.setLineDash([]);
-    [-1, 1].forEach(function (sd) {
-      var h0 = v.scr([sd * kit.tray.x, kit.tray.bottom, 0]), h1 = v.scr([sd * kit.tray.x, kit.tray.top, 0]);
-      g.strokeStyle = hexA(ink, 0.7); g.lineWidth = Math.max(4, 0.034 * v.s); g.lineCap = 'round'; g.beginPath(); g.moveTo(h0[0], h0[1]); g.lineTo(h1[0], h1[1]); g.stroke(); g.lineCap = 'butt';
-    });
-    var t0 = v.scr([-kit.tray.x, -hs.h / 2 - 0.014, 0]), t1 = v.scr([kit.tray.x, -hs.h / 2 - 0.014, 0]);
-    g.strokeStyle = hexA(ink, 0.6); g.lineWidth = Math.max(3, 0.022 * v.s); g.beginPath(); g.moveTo(t0[0], t0[1]); g.lineTo(t1[0], t1[1]); g.stroke();
-    $('backSlice').textContent = state.slice === 'subject' ? 'Solid outline: the camera frame at the subject, ' + fmtLen(zs) + ' away; dashed: each beam’s half-power edge there' : 'Solid outline: what the lens sees ' + fmtLen(zs) + ' in front of the port; dashed: each beam’s half-power edge there';
-  }
   function drawViews(draft) {
     var world = lastWorld || S.buildWorld(effectiveState(), 480);
-    ['top', 'side', 'back'].forEach(function (kind) {
+    ['top', 'side'].forEach(function (kind) {
       var v = setupView(kind, world);
       v.handles = [];
       drawGrid(v);
-      if (kind === 'back') { drawBack(v, world); drawStrobes(v, world); return; }
       drawHeat(v, world, draft ? 64 : 132);
       world.strobes.forEach(function (s) { beamFan(v, world, s, s.side < 0 ? css('--sA') : css('--sB')); });
       drawFOV(v, world);
@@ -880,7 +799,7 @@ details.theory li { margin-bottom: 4px; }
     var st = state.strobes[i], a = S.aimAt(st.pos, [0, 0, state.Z]);
     return { dy: st.yaw - a.yaw, dp: st.pitch - a.pitch };
   }
-  ['top', 'side', 'back'].forEach(function (kind) {
+  ['top', 'side'].forEach(function (kind) {
     var c = views[kind].canvas;
     c.addEventListener('pointerdown', function (e) {
       var r = c.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top, v = views[kind];
@@ -898,7 +817,7 @@ details.theory li { margin-bottom: 4px; }
       var u = v.U(x), w = v.V(y);
       if (drag.h.kind === 'head') {
         var p = st.pos.slice();
-        if (kind === 'top') { p[0] = u; p[2] = w; } else if (kind === 'side') { p[2] = u; p[1] = w; } else { p[0] = u; p[1] = w; }
+        if (kind === 'top') { p[0] = u; p[2] = w; } else { p[2] = u; p[1] = w; }
         var ax = S.strobeAxis(st.yaw, st.pitch);
         st.pos = S.constrainStrobe(kitObj(), m, p, ax, side, state.arms);
         if (state.aimLock) { var a = S.aimAt(st.pos, [0, 0, state.Z]); st.yaw = a.yaw + drag.rel.dy; st.pitch = a.pitch + drag.rel.dp; }
@@ -917,8 +836,8 @@ details.theory li { margin-bottom: 4px; }
 
   /* observer view: drag to turn, scroll or pinch to zoom, double-click to reset */
   (function () {
-    var box = $('photo'), pts = {}, last = null, pinch = 0;
-    function isObs() { return state.view === 'observer'; }
+    var box = $('obsPhoto'), pts = {}, last = null, pinch = 0;
+    function isObs() { return true; }
     function setPreset(p) { document.querySelectorAll('[data-obs]').forEach(function (b) { b.setAttribute('aria-pressed', String(b.getAttribute('data-obs') === p)); }); state.obs.preset = p; }
     box.addEventListener('pointerdown', function (e) {
       if (!isObs()) return;
@@ -934,31 +853,31 @@ details.theory li { margin-bottom: 4px; }
       if (ids.length >= 2) {
         var d = Math.hypot(pts[ids[0]][0] - pts[ids[1]][0], pts[ids[0]][1] - pts[ids[1]][1]);
         if (pinch > 0) state.obs.zoom = clamp(state.obs.zoom * d / pinch, 0.35, 3);
-        pinch = d; update(true); return;
+        pinch = d; updateObs(true); return;
       }
       var dx = e.clientX - last[0], dy = e.clientY - last[1]; last = [e.clientX, e.clientY];
       state.obs.az = ((state.obs.az + dx * 0.4 + 540) % 360) - 180;
       state.obs.el = clamp(state.obs.el + dy * 0.3, -15, 85);
       setPreset('');
-      update(true);
+      updateObs(true);
     });
-    function end(e) { if (pts[e.pointerId]) { delete pts[e.pointerId]; pinch = 0; if (!Object.keys(pts).length) { box.classList.remove('dragging'); update(false); } } }
+    function end(e) { if (pts[e.pointerId]) { delete pts[e.pointerId]; pinch = 0; if (!Object.keys(pts).length) { box.classList.remove('dragging'); updateObs(false); } } }
     box.addEventListener('pointerup', end); box.addEventListener('pointercancel', end);
     box.addEventListener('wheel', function (e) {
       if (!isObs()) return;
       e.preventDefault();
       state.obs.zoom = clamp(state.obs.zoom * Math.exp(-e.deltaY * 0.0015), 0.35, 3);
-      update(true);
+      updateObs(true);
     }, { passive: false });
     box.addEventListener('dblclick', function () {
       if (!isObs()) return;
-      var v = OBS_VIEWS['34']; state.obs.az = v.az; state.obs.el = v.el; state.obs.zoom = 1; setPreset('34'); update(false);
+      var v = OBS_VIEWS['34']; state.obs.az = v.az; state.obs.el = v.el; state.obs.zoom = 1; setPreset('34'); updateObs(false);
     });
     document.querySelectorAll('[data-obs]').forEach(function (b) { b.addEventListener('click', function () {
-      var v = OBS_VIEWS[b.getAttribute('data-obs')]; state.obs.az = v.az; state.obs.el = v.el; setPreset(b.getAttribute('data-obs')); update(false);
+      var v = OBS_VIEWS[b.getAttribute('data-obs')]; state.obs.az = v.az; state.obs.el = v.el; setPreset(b.getAttribute('data-obs')); updateObs(false);
     }); });
     document.querySelectorAll('[data-zoom]').forEach(function (b) { b.addEventListener('click', function () {
-      state.obs.zoom = clamp(state.obs.zoom * (+b.getAttribute('data-zoom') > 0 ? 1.25 : 0.8), 0.35, 3); update(false);
+      state.obs.zoom = clamp(state.obs.zoom * (+b.getAttribute('data-zoom') > 0 ? 1.25 : 0.8), 0.35, 3); updateObs(false);
     }); });
   })();
 
@@ -1064,8 +983,7 @@ details.theory li { margin-bottom: 4px; }
     var sc = S.findById(S.SCENES, state.scene); $('sceneNote').textContent = sc.note;
     var zr = state.scene === 'macro' ? [0.05, 0.6] : [0.3, 3]; $('Z').min = zr[0]; $('Z').max = zr[1]; $('Z').step = state.scene === 'macro' ? 0.005 : 0.01;
     document.querySelectorAll('[data-q]').forEach(function (b) { b.setAttribute('aria-pressed', String(b.getAttribute('data-q') === state.quality)); });
-    document.querySelectorAll('[data-view]').forEach(function (b) { b.setAttribute('aria-pressed', String(b.getAttribute('data-view') === state.view)); });
-    $('obsBar').hidden = state.view !== 'observer'; $('photo').classList.toggle('obs', state.view === 'observer'); $('seeThrough').checked = state.seeThrough;
+    $('seeThrough').checked = state.seeThrough;
     $('mode').value = state.mode; $('volShadows').checked = state.volShadows; $('boost').value = String(state.boost); $('bsBoost').value = String(state.bsBoost);
   }
 
@@ -1132,23 +1050,19 @@ details.theory li { margin-bottom: 4px; }
   $('depth').addEventListener('input', function () { state.depth = +$('depth').value; update(true); });
   $('sky').addEventListener('change', function () { state.sky = $('sky').value; update(false); });
   document.querySelectorAll('[data-q]').forEach(function (b) { b.addEventListener('click', function () { state.quality = b.getAttribute('data-q'); update(false); }); });
-  document.querySelectorAll('[data-view]').forEach(function (b) { b.addEventListener('click', function () { state.view = b.getAttribute('data-view'); update(false); }); });
   $('mode').addEventListener('change', function () { state.mode = $('mode').value; update(false); });
   $('volShadows').addEventListener('change', function () { state.volShadows = $('volShadows').checked; update(false); });
   $('boost').addEventListener('change', function () { state.boost = +$('boost').value; update(false); });
   $('bsBoost').addEventListener('change', function () { state.bsBoost = +$('bsBoost').value; update(false); });
   $('seeThrough').addEventListener('change', function () { state.seeThrough = $('seeThrough').checked; update(false); });
-  document.querySelectorAll('[data-slice]').forEach(function (b) { b.addEventListener('click', function () {
-    state.slice = b.getAttribute('data-slice');
-    document.querySelectorAll('[data-slice]').forEach(function (x) { x.setAttribute('aria-pressed', String(x === b)); });
-    drawViews(false);
-  }); });
-  $('btnEnlarge').addEventListener('click', function () {
-    state.enlarged = !state.enlarged;
-    $('photoBox').classList.toggle('wide', state.enlarged);
-    $('btnEnlarge').setAttribute('aria-pressed', String(state.enlarged));
-    $('btnEnlarge').textContent = state.enlarged ? 'Shrink' : 'Enlarge';
-    update(false);
+  [['btnEnlarge', 'photoBox'], ['btnEnlargeObs', 'obsBox']].forEach(function (pair) {
+    $(pair[0]).addEventListener('click', function () {
+      var wide = !$(pair[1]).classList.contains('wide');
+      $(pair[1]).classList.toggle('wide', wide);
+      $(pair[0]).setAttribute('aria-pressed', String(wide));
+      $(pair[0]).textContent = wide ? 'Shrink' : 'Enlarge';
+      update(false);
+    });
   });
   ['change', 'input'].forEach(function (ev) { ['Z', 'vis', 'specks', 'depth', 'tilt', 'N'].forEach(function (id) { if (ev === 'change') $(id).addEventListener('change', function () { update(false); }); }); });
 
@@ -1271,7 +1185,7 @@ details.theory li { margin-bottom: 4px; }
   applyWater(state.water);
   applyPlacement('aimed');
   var ro = new ResizeObserver(function () { update(false); });
-  ro.observe($('photo')); ro.observe($('top')); ro.observe($('back'));
+  ro.observe($('photo')); ro.observe($('obsPhoto')); ro.observe($('top'));
   var mq = window.matchMedia('(prefers-color-scheme: dark)');
   if (mq.addEventListener) mq.addEventListener('change', function () { drawViews(false); });
   window.__strobeLab = { state: state, S: S, update: update, views: views, metrics: function () { return lastMetrics; }, ttl: function () { return ttlShift; } };
