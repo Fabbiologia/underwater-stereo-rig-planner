@@ -86,6 +86,8 @@ uniform uint uSeed;
 uniform float uBoost;
 uniform float uPhaseConst;   // > 0: use this constant phase function (observer view, beam-shape teaching mode)
 uniform float uBsBoost;      // multiplies backscatter (haze and specks) in the camera view; 1 = true to physics
+uniform vec3 uCLos;          // attenuation along the viewer's line of sight (observer "see-through" option); = uC otherwise
+uniform float uRigFill;      // fill light on the camera rig in the observer view (luminance-time), 0 = off
 
 /* ---------------- hashing and noise (identical to strobe-physics.js) ---------------- */
 uint pcg(uint v) { uint s = v * 747796405u + 2891336453u; uint w = ((s >> ((s >> 28u) + 4u)) ^ s) * 277803737u; return (w >> 22u) ^ w; }
@@ -243,13 +245,13 @@ vec3 albedo(int mat, vec3 p, vec3 n, vec3 pc, out float spec, out float rough) {
   if (mat == 10) { vec2 f = abs(fract(q.xy * 10.0) - 0.5); float line = step(0.47, max(f.x, f.y));
     vec2 G = abs(fract(q.xy * 2.0) - 0.5); float major = step(0.485, max(G.x, G.y));
     return vec3(0.18) * (1.0 - 0.35 * line - 0.35 * major); }
-  if (mat == 11) { spec = 0.2; rough = 0.35; return vec3(0.07, 0.07, 0.08); }
-  if (mat == 12) { spec = 0.4; rough = 0.3; return vec3(0.22, 0.24, 0.27); }
-  if (mat == 13) { spec = 0.2; rough = 0.4; return vec3(0.10, 0.10, 0.11); }
+  if (mat == 11) { spec = 0.35; rough = 0.35; return vec3(0.34, 0.36, 0.40); }
+  if (mat == 12) { spec = 0.5; rough = 0.3; return vec3(0.62, 0.64, 0.68); }
+  if (mat == 13) { spec = 0.3; rough = 0.4; return vec3(0.20, 0.21, 0.23); }
   if (mat == 15) { spec = 0.8; rough = 0.12; return vec3(0.03); }
   if (mat == 16) { spec = 0.08; rough = 0.4; return vec3(0.85); }
   if (mat == 17) { float d = smoothstep(0.30, 0.20, length(fract(q.xz * 60.0) - 0.5)); return mix(vec3(0.62, 0.56, 0.42), vec3(0.80, 0.74, 0.55), d); }
-  if (mat == 20) { spec = 1.0; rough = 0.08; return vec3(0.02, 0.02, 0.03); }
+  if (mat == 20) { spec = 1.0; rough = 0.08; return vec3(0.10, 0.16, 0.20); }
   if (mat == 21) { return vec3(0.45, 0.38, 0.12); }
   return vec3(0.5);
 }
@@ -371,7 +373,7 @@ float appDist(float s) {
 float blurPx(float s) { return max(0.6, 0.5 * uDep * abs(1.0 / max(appDist(s), 1e-3) - uFocusInv) * uFpxAir); }
 
 /* ---------------- single-scattering backscatter along the ray ---------------- */
-vec3 volume(vec3 ro, vec3 rd, float tEnd, vec3 c, float jit) {
+vec3 volume(vec3 ro, vec3 rd, float tEnd, vec3 c, vec3 cl, float jit) {
   vec3 sum = vec3(0.0);
   float T = min(tEnd, uRmax); float fN = float(uSteps);
   for (int i = 0; i < 96; i++) {
@@ -386,15 +388,17 @@ vec3 volume(vec3 ro, vec3 rd, float tEnd, vec3 c, float jit) {
       float B = beam(s, w); if (B <= 1e-5) continue;
       if (uVolShadow == 1 && occluded(x, -w, D - 1e-3)) continue;
       float ph = uPhaseConst > 0.0 ? uPhaseConst : phaseFn(dot(w, -rd));
-      acc += uSI[s] * (B * ph / D2) * exp(-c * D);
+      // beam-shape teaching mode: soften the last 12 cm in front of the strobe so its glow does not swamp the view
+      float D2v = uPhaseConst > 0.0 ? max(D2, 0.0144) : D2;
+      acc += uSI[s] * (B * ph / D2v) * exp(-c * D);
     }
-    sum += acc * exp(-c * t) * dt;
+    sum += acc * exp(-cl * t) * dt;
   }
   return uB * uBoost * sum;
 }
 
 /* ---------------- backscatter specks (procedural particles) ---------------- */
-vec3 particles(vec2 pix, float tHit, float omegaPix, vec3 c) {
+vec3 particles(vec2 pix, float tHit, float omegaPix, vec3 c, vec3 cl) {
   vec3 sum = vec3(0.0);
   if (uRho <= 0.0 || uSlices <= 0) return sum;
   float sMin = 0.01, sMax = uPartMax;
@@ -442,7 +446,7 @@ vec3 particles(vec2 pix, float tHit, float omegaPix, vec3 c) {
           J *= 0.6 * PI * a * a;   // weak backscatter of porous aggregates (see strobe-physics.js)
           float sp = s + uPupil;
           float omegaDisk = PI * r * r * omegaPix;
-          sum += J * exp(-c * s) / (sp * sp * omegaDisk) * cov;
+          sum += J * exp(-cl * s) / (sp * sp * omegaDisk) * cov;
         }
       }
     }
@@ -472,6 +476,7 @@ void main() {
   float jit = hf(seed);
   bool water = uMode != 2;
   vec3 c = water ? uC : vec3(0.0);
+  vec3 cl = water ? (uView == 1 ? uCLos : uC) : vec3(0.0);
   Hit h = trace(ro, rd, 1e5, uView == 1);
   vec3 Ls = vec3(0.0), La = vec3(0.0), Lbs = vec3(0.0), Lp = vec3(0.0), Le = vec3(0.0);
   float tEnd = h.t > 0.0 ? h.t : 1e5;
@@ -479,22 +484,23 @@ void main() {
     vec3 p = ro + rd * h.t; vec3 n = h.n; if (dot(n, rd) > 0.0) n = -n;
     if (h.mat == 14) {
       int s = int(h.k + 0.5);
-      if (s < uNS) { vec3 w = normalize(ro - uSPos[s]); Le = uSI[s] * beam(s, w) / (PI * uSRad[s] * uSRad[s]) * exp(-c * h.t); }
+      if (s < uNS) { vec3 w = normalize(ro - uSPos[s]); Le = uSI[s] * beam(s, w) / (PI * uSRad[s] * uSRad[s]) * exp(-cl * h.t); }
     } else {
       float spec, rough; vec3 alb = albedo(h.mat, p, n, h.pc, spec, rough);
       vec3 nb = bump(h.mat, p, n);
       if (dot(nb, -rd) < 0.02) nb = n;
-      Ls = strobeLight(p, nb, -rd, alb, spec, rough, c, jit) * exp(-c * h.t);
-      if (water) { vec3 att = exp(-c * h.t); La = alb / PI * ambientAt(p, nb) * att + background(rd) * (1.0 - att); }
+      Ls = strobeLight(p, nb, -rd, alb, spec, rough, c, jit) * exp(-cl * h.t);
+      if (uView == 1 && (h.flags & 4) != 0 && uRigFill > 0.0) Ls += alb / PI * uRigFill * (0.35 + 0.65 * max(dot(nb, -rd), 0.0)) * exp(-cl * h.t);
+      if (water) { vec3 att = exp(-cl * h.t); La = alb / PI * ambientAt(p, nb) * att + background(rd) * (1.0 - att); }
     }
   } else if (water) {
     La = background(rd);
   }
   if (water) {
-    Lbs = volume(ro, rd, tEnd, c, jit);
+    Lbs = volume(ro, rd, tEnd, c, cl, jit);
     vec3 o1, d1, o2, d2; getRay(pix + vec2(1.0, 0.0), o1, d1); getRay(pix + vec2(0.0, 1.0), o2, d2);
     float omegaPix = max(length(cross(d1 - rd, d2 - rd)), 1e-12);
-    Lp = particles(pix, tEnd, omegaPix, c);
+    Lp = particles(pix, tEnd, omegaPix, c, cl);
     if (uView == 0) { Lbs *= uBsBoost; Lp *= uBsBoost; }
   }
   vec3 v;
@@ -668,6 +674,11 @@ void main() {
     gl.uniform1f(L.uPhaseConst, observer && boost > 1 ? 0.0028 * boost : 0.0);
     gl.uniform1f(L.uBoost, 1.0);
     gl.uniform1f(L.uBsBoost, observer ? 1.0 : (opts.bsBoost || 1));
+    // observer line of sight: optionally as clear as ~30 m visibility so the rig and scene stay readable
+    var cw = world.water.c, see = observer && opts.seeThrough;
+    gl.uniform3fv(L.uCLos, new Float32Array(see ? [Math.min(cw[0], 0.16), Math.min(cw[1], 0.12), Math.min(cw[2], 0.12)] : cw));
+    var kEff = world.kexp * Math.pow(2, opts.evShift || 0);
+    gl.uniform1f(L.uRigFill, observer && opts.rigFill !== false ? 2.9 / kEff : 0.0);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
   };
 

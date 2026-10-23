@@ -97,6 +97,12 @@ input[type="range"] { width: 100%; min-width: 0; accent-color: var(--accent); ma
 .photo { position: relative; width: 100%; aspect-ratio: 3 / 2; max-width: 100%; background: #000; border-radius: 6px; overflow: hidden; }
 .photo canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 .photo #gl { touch-action: none; }
+.photo #ov { pointer-events: none; }
+.photo.obs { cursor: grab; touch-action: none; }
+.photo.obs.dragging { cursor: grabbing; }
+.obs-bar { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.obs-bar .seg button { padding-inline: 8px; font-size: 12px; }
+.obs-bar .hint { margin: 0; }
 .photo .msg { position: absolute; inset: 0; display: grid; place-items: center; color: #fff; text-align: center; padding: 20px; font-size: 14px; }
 .evlegend { position: absolute; left: 8px; bottom: 8px; display: flex; gap: 0; font-size: 10.5px; font-family: var(--font-mono); border-radius: 4px; overflow: hidden; }
 .evlegend span { padding-block: 2px; padding-inline: 5px; color: #111; }
@@ -216,6 +222,7 @@ details.theory li { margin-bottom: 4px; }
       <div class="field"><span class="lbl">Render quality</span><div class="seg" role="group" aria-label="Render quality"><button type="button" data-q="draft" aria-pressed="false">Fast</button><button type="button" data-q="high" aria-pressed="true">Detailed</button></div></div>
       <div class="field"><label for="bsBoost">Backscatter in the photograph</label><select id="bsBoost"><option value="1" selected>True to physics</option><option value="3">Shown 3 × stronger (lecture demo)</option><option value="10">Shown 10 × stronger</option></select></div>
       <label class="check"><input type="checkbox" id="volShadows" checked> Shadows inside the water (light shafts)</label>
+      <label class="check"><input type="checkbox" id="seeThrough" checked> Observer view: see through the water (the beams still use the real water)</label>
       <div class="field"><label for="boost">Beams in the observer view</label><select id="boost"><option value="1">True to physics (glare toward the light)</option><option value="5" selected>Show the beam shape</option><option value="20">Show the beam shape, strong</option></select></div>
     </section>
   </aside>
@@ -226,6 +233,11 @@ details.theory li { margin-bottom: 4px; }
         <div class="seg" role="group" aria-label="Viewpoint"><button type="button" data-view="camera" aria-pressed="true">Camera</button><button type="button" data-view="observer" aria-pressed="false">Observer</button></div>
         <select id="mode" aria-label="What the photograph shows"><option value="photo">Photograph</option><option value="backscatter">Backscatter only</option><option value="strobe">Strobe light only (no daylight)</option><option value="air">Same scene in air</option><option value="exposure">Exposure map</option></select>
         <button class="btn small" type="button" id="btnEnlarge" aria-pressed="false">Enlarge</button>
+      </div>
+      <div class="obs-bar" id="obsBar" hidden>
+        <div class="seg" role="group" aria-label="Observer viewpoint"><button type="button" data-obs="34" aria-pressed="true">3/4</button><button type="button" data-obs="side" aria-pressed="false">Side</button><button type="button" data-obs="above" aria-pressed="false">Above</button><button type="button" data-obs="behind" aria-pressed="false">Behind</button></div>
+        <div class="seg" role="group" aria-label="Zoom"><button type="button" data-zoom="-1" aria-label="Zoom out">−</button><button type="button" data-zoom="1" aria-label="Zoom in">+</button></div>
+        <p class="hint">Drag to turn, scroll or pinch to zoom, double-click to reset</p>
       </div>
       <div class="photo" id="photo">
         <canvas id="gl" aria-label="Simulated photograph from the camera"></canvas>
@@ -269,7 +281,7 @@ details.theory li { margin-bottom: 4px; }
           <li>The amber cloud in the diagrams shows where the light that reaches the lens as backscatter is scattered: it lives where the beams overlap the camera’s field of view. Shrink it and the haze and specks in the photograph go away.</li>
           <li>Switch the photograph to “Backscatter only” to see just the light scattered by the water, “Same scene in air” to see coverage and shadows without water, or “Exposure map” to read brightness in stops. “Enlarge” makes the photograph full width.</li>
           <li>The default water is a murky day in Plymouth Sound (about 3 m visibility), where placement makes a dramatic difference. For a lecture demonstration in clearer water, “Backscatter in the photograph” can show the scattered light 3 or 10 times stronger; the photograph then says so, and the numbers stay true to physics.</li>
-          <li>The observer view shows the rig from outside, with the beams made visible by the water. Drag on it to walk around.</li>
+          <li>The observer view shows the rig from outside, with the beams made visible by the water. Drag to turn around it, scroll or pinch to zoom, or pick 3/4, Side, Above or Behind; double-click resets. “See through the water” clears the water between you and the rig so the camera and beams are easy to see, while the beams themselves still use the real water.</li>
           <li>Save snapshots to compare placements; the numbers on the right explain each result.</li>
         </ol>
       </div>
@@ -325,7 +337,7 @@ details.theory li { margin-bottom: 4px; }
     ],
     ttl: true, aimLock: true,
     view: 'camera', mode: 'photo', quality: 'high', volShadows: true, boost: 5, bsBoost: 1, slice: 'near', enlarged: false,
-    obs: { az: -64, el: 24 }
+    obs: { az: -64, el: 24, zoom: 1, preset: '34' }, seeThrough: true
   };
   var ttlShift = -4;
   var lastWorld = null, lastMetrics = null;
@@ -357,15 +369,17 @@ details.theory li { margin-bottom: 4px; }
 
   function sizeCanvas(scale) {
     var r = $('photo').getBoundingClientRect();
-    var dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+    // render at least 1.5× the CSS size (up to 2× on high-density screens) so small details and specks stay crisp
+    var dpr = Math.max(1.5, Math.min(window.devicePixelRatio || 1, 2));
     var W = Math.max(240, Math.round(r.width * dpr * scale)), H = Math.round(W * 2 / 3);
-    if (W > 1500) { W = 1500; H = 1000; }
+    if (W > 1600) { W = 1600; H = Math.round(W * 2 / 3); }
     if (glCanvas.width !== W || glCanvas.height !== H) { glCanvas.width = W; glCanvas.height = H; }
     return W;
   }
+  var OBS_VIEWS = { '34': { az: -64, el: 24 }, side: { az: -90, el: 6 }, above: { az: -12, el: 76 }, behind: { az: 0, el: 16 } };
   function observerCam(world, W) {
-    var Z = world.Z, T = S.rigToWorld(world.tilt, [0, 0.0, Z * 0.5 - 0.05]);
-    var dist = 0.75 + 1.45 * Z + (state.kit === 'big' ? 0.35 : 0.15);
+    var Z = world.Z, T = S.rigToWorld(world.tilt, [0, 0.0, Z * 0.4 - 0.05]);
+    var dist = (0.6 + 1.25 * Z + (state.kit === 'big' ? 0.3 : 0.12)) / state.obs.zoom;
     var az = state.obs.az * DEG, el = state.obs.el * DEG;
     var pos = [T[0] + dist * Math.cos(el) * Math.sin(az), T[1] + dist * Math.sin(el), T[2] - dist * Math.cos(el) * Math.cos(az)];
     var fwd = S.norm(S.sub(T, pos)), right = S.norm(S.cross([0, 1, 0], fwd)), up = S.cross(fwd, right);
@@ -380,13 +394,14 @@ details.theory li { margin-bottom: 4px; }
     var t0 = performance.now();
     var ob = state.view === 'observer' ? observerCam(world, W) : null;
     // the observer looks through more water than the camera: compensate most of that loss so the scene stays readable
-    var evShift = ob ? 0.6 * world.water.c[1] * ob.focus / Math.LN2 : 0;
-    renderer.render(world, { view: state.view, mode: state.mode, quality: quality, observer: ob, boost: state.boost, seed: seed, volShadows: state.volShadows, evShift: evShift, bsBoost: state.bsBoost });
+    var cLos = state.seeThrough ? Math.min(world.water.c[1], 0.12) : world.water.c[1];
+    var evShift = ob ? 0.6 * cLos * ob.focus / Math.LN2 : 0;
+    renderer.render(world, { view: state.view, mode: state.mode, quality: quality, observer: ob, boost: state.boost, seed: seed, volShadows: state.volShadows, evShift: evShift, bsBoost: state.bsBoost, seeThrough: state.seeThrough });
     drawOverlay(world, ob, W);
     var dt = performance.now() - t0;
     $('status').textContent = (quality === 'draft' ? 'Fast preview' : 'Detailed render') + ' · ' + glCanvas.width + ' × ' + glCanvas.height + ' px' + (state.bsBoost > 1 && state.view === 'camera' ? ' · backscatter exaggerated ×' + state.bsBoost + ' for teaching; the numbers stay true to physics' : '');
     $('evLegend').hidden = state.mode !== 'exposure';
-    var tag = state.view === 'observer' ? 'Observer view · drag to walk around' + (state.boost > 1 ? ' · beam shape shown' : ' · true scattering') + ' · +' + evShift.toFixed(1) + ' EV' : fmtN(state.N) + ' · 1/' + Math.round(1 / state.shutter) + ' s · ISO ' + state.iso + (state.bsBoost > 1 ? ' · backscatter shown ×' + state.bsBoost : '');
+    var tag = state.view === 'observer' ? 'Observer' + (state.seeThrough ? ' · see-through water' : '') + (state.boost > 1 ? ' · beam shapes' : '') : fmtN(state.N) + ' · 1/' + Math.round(1 / state.shutter) + ' s · ISO ' + state.iso + (state.bsBoost > 1 ? ' · backscatter shown ×' + state.bsBoost : '');
     $('photoTag').textContent = tag;
     return world;
   }
@@ -408,27 +423,35 @@ details.theory li { margin-bottom: 4px; }
         var t = i / 12, px = (a[0] + (b[0] - a[0]) * t) * cam.W / 2, py = (a[1] + (b[1] - a[1]) * t) * cam.H / 2;
         var ray = S.cameraRay(world, px, py); if (!ray) continue;
         seg.push(S.add(ray.o, S.mul(ray.d, far)));
-        if (i === 0) line(ray.o, S.add(ray.o, S.mul(ray.d, far)), 'rgba(255,255,255,0.55)', [5, 4]);
+        if (i === 0) line(ray.o, S.add(ray.o, S.mul(ray.d, far)), 'rgba(255,255,255,0.4)', [5, 4]);
       }
       edges.push(seg);
     }
-    g.setLineDash([]); g.strokeStyle = 'rgba(255,255,255,0.55)'; g.lineWidth = 1.1;
+    g.setLineDash([]); g.strokeStyle = 'rgba(255,255,255,0.4)'; g.lineWidth = 1.1;
     edges.forEach(function (seg) { g.beginPath(); var started = false; seg.forEach(function (p) { var s = P(p); if (!s) return; if (!started) { g.moveTo(s[0], s[1]); started = true; } else g.lineTo(s[0], s[1]); }); g.stroke(); });
     var lab = P(S.rigToWorld(world.tilt, [0, cam.vfov > 0 ? Math.tan(cam.vfov / 2 * DEG) * far * 0.9 : 0.2, far]));
     if (lab) { g.font = '600 12px "IBM Plex Sans", system-ui'; g.fillStyle = 'rgba(255,255,255,0.9)'; g.fillText('camera field of view', lab[0] + 6, lab[1] - 6); }
+    // label the camera so it is easy to find from any viewpoint
+    var hs = world.kit.housing, camC = P(S.rigToWorld(world.tilt, [0, hs.h / 2 + 0.03, hs.front - hs.d / 2]));
+    if (camC) {
+      g.font = '600 12px "IBM Plex Sans", system-ui'; var tw = g.measureText('camera').width;
+      g.fillStyle = 'rgba(10,20,26,0.72)'; g.fillRect(camC[0] - tw / 2 - 6, camC[1] - 24, tw + 12, 18);
+      g.fillStyle = '#fff'; g.textAlign = 'center'; g.fillText('camera', camC[0], camC[1] - 11); g.textAlign = 'start';
+      g.strokeStyle = 'rgba(255,255,255,0.8)'; g.lineWidth = 1; g.beginPath(); g.moveTo(camC[0], camC[1] - 6); g.lineTo(camC[0], camC[1]); g.stroke();
+    }
     world.strobes.forEach(function (s) {
       var col = s.side < 0 ? css('--sA') : css('--sB');
       // half-power cone: rings and four edge lines
-      var Lc = Math.max(0.3, world.Z * 0.85), tx = Math.tan(s.thx), ty = Math.tan(s.thy);
-      [0.35, 0.7, 1].forEach(function (f) {
+      var Lc = Math.max(0.3, world.Z * 0.6), tx = Math.tan(s.thx), ty = Math.tan(s.thy);
+      [0.45, 1].forEach(function (f) {
         var d = Lc * f, c0 = S.add(s.pos, S.mul(s.ax, d)), pts = [];
         for (var k = 0; k <= 48; k++) { var a = k / 48 * 2 * Math.PI; pts.push(P(S.add(c0, S.add(S.mul(s.rt, Math.cos(a) * d * tx), S.mul(s.up, Math.sin(a) * d * ty))))); }
-        g.strokeStyle = hexA(col, f === 1 ? 0.85 : 0.5); g.lineWidth = f === 1 ? 1.6 : 1; g.setLineDash([]); g.beginPath();
+        g.strokeStyle = hexA(col, f === 1 ? 0.6 : 0.35); g.lineWidth = f === 1 ? 1.3 : 1; g.setLineDash([]); g.beginPath();
         var on = false; pts.forEach(function (q) { if (!q) { on = false; return; } if (!on) { g.moveTo(q[0], q[1]); on = true; } else g.lineTo(q[0], q[1]); }); g.stroke();
       });
       [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(function (k) {
         var e = S.add(s.pos, S.add(S.mul(s.ax, Lc), S.add(S.mul(s.rt, k[0] * Lc * tx), S.mul(s.up, k[1] * Lc * ty))));
-        line(s.pos, e, hexA(col, 0.7), [4, 4], 1.2);
+        line(s.pos, e, hexA(col, 0.5), [4, 4], 1.1);
       });
       line(s.pos, S.add(s.pos, S.mul(s.ax, Lc)), col, [], 2);
       var q = P(s.pos); if (q) { g.fillStyle = col; g.font = '700 13px "IBM Plex Sans", system-ui'; g.fillText(s.side < 0 ? 'A' : 'B', q[0] + 8, q[1] - 8); }
@@ -892,18 +915,51 @@ details.theory li { margin-bottom: 4px; }
     c.addEventListener('pointerup', end); c.addEventListener('pointercancel', end);
   });
 
-  /* observer view: drag to orbit */
+  /* observer view: drag to turn, scroll or pinch to zoom, double-click to reset */
   (function () {
-    var last = null;
-    glCanvas.addEventListener('pointerdown', function (e) { if (state.view !== 'observer') return; last = [e.clientX, e.clientY]; glCanvas.setPointerCapture(e.pointerId); });
-    glCanvas.addEventListener('pointermove', function (e) {
-      if (!last) return;
-      state.obs.az = ((state.obs.az + (e.clientX - last[0]) * 0.35 + 540) % 360) - 180;
-      state.obs.el = clamp(state.obs.el + (e.clientY - last[1]) * 0.25, -20, 80);
-      last = [e.clientX, e.clientY]; update(true);
+    var box = $('photo'), pts = {}, last = null, pinch = 0;
+    function isObs() { return state.view === 'observer'; }
+    function setPreset(p) { document.querySelectorAll('[data-obs]').forEach(function (b) { b.setAttribute('aria-pressed', String(b.getAttribute('data-obs') === p)); }); state.obs.preset = p; }
+    box.addEventListener('pointerdown', function (e) {
+      if (!isObs()) return;
+      pts[e.pointerId] = [e.clientX, e.clientY]; box.setPointerCapture(e.pointerId); box.classList.add('dragging');
+      var ids = Object.keys(pts); last = [e.clientX, e.clientY];
+      if (ids.length === 2) pinch = Math.hypot(pts[ids[0]][0] - pts[ids[1]][0], pts[ids[0]][1] - pts[ids[1]][1]);
+      e.preventDefault();
     });
-    function end() { if (last) { last = null; update(false); } }
-    glCanvas.addEventListener('pointerup', end); glCanvas.addEventListener('pointercancel', end);
+    box.addEventListener('pointermove', function (e) {
+      if (!isObs() || !pts[e.pointerId]) return;
+      pts[e.pointerId] = [e.clientX, e.clientY];
+      var ids = Object.keys(pts);
+      if (ids.length >= 2) {
+        var d = Math.hypot(pts[ids[0]][0] - pts[ids[1]][0], pts[ids[0]][1] - pts[ids[1]][1]);
+        if (pinch > 0) state.obs.zoom = clamp(state.obs.zoom * d / pinch, 0.35, 3);
+        pinch = d; update(true); return;
+      }
+      var dx = e.clientX - last[0], dy = e.clientY - last[1]; last = [e.clientX, e.clientY];
+      state.obs.az = ((state.obs.az + dx * 0.4 + 540) % 360) - 180;
+      state.obs.el = clamp(state.obs.el + dy * 0.3, -15, 85);
+      setPreset('');
+      update(true);
+    });
+    function end(e) { if (pts[e.pointerId]) { delete pts[e.pointerId]; pinch = 0; if (!Object.keys(pts).length) { box.classList.remove('dragging'); update(false); } } }
+    box.addEventListener('pointerup', end); box.addEventListener('pointercancel', end);
+    box.addEventListener('wheel', function (e) {
+      if (!isObs()) return;
+      e.preventDefault();
+      state.obs.zoom = clamp(state.obs.zoom * Math.exp(-e.deltaY * 0.0015), 0.35, 3);
+      update(true);
+    }, { passive: false });
+    box.addEventListener('dblclick', function () {
+      if (!isObs()) return;
+      var v = OBS_VIEWS['34']; state.obs.az = v.az; state.obs.el = v.el; state.obs.zoom = 1; setPreset('34'); update(false);
+    });
+    document.querySelectorAll('[data-obs]').forEach(function (b) { b.addEventListener('click', function () {
+      var v = OBS_VIEWS[b.getAttribute('data-obs')]; state.obs.az = v.az; state.obs.el = v.el; setPreset(b.getAttribute('data-obs')); update(false);
+    }); });
+    document.querySelectorAll('[data-zoom]').forEach(function (b) { b.addEventListener('click', function () {
+      state.obs.zoom = clamp(state.obs.zoom * (+b.getAttribute('data-zoom') > 0 ? 1.25 : 0.8), 0.35, 3); update(false);
+    }); });
   })();
 
   /* ---------------- controls ---------------- */
@@ -1009,6 +1065,7 @@ details.theory li { margin-bottom: 4px; }
     var zr = state.scene === 'macro' ? [0.05, 0.6] : [0.3, 3]; $('Z').min = zr[0]; $('Z').max = zr[1]; $('Z').step = state.scene === 'macro' ? 0.005 : 0.01;
     document.querySelectorAll('[data-q]').forEach(function (b) { b.setAttribute('aria-pressed', String(b.getAttribute('data-q') === state.quality)); });
     document.querySelectorAll('[data-view]').forEach(function (b) { b.setAttribute('aria-pressed', String(b.getAttribute('data-view') === state.view)); });
+    $('obsBar').hidden = state.view !== 'observer'; $('photo').classList.toggle('obs', state.view === 'observer'); $('seeThrough').checked = state.seeThrough;
     $('mode').value = state.mode; $('volShadows').checked = state.volShadows; $('boost').value = String(state.boost); $('bsBoost').value = String(state.bsBoost);
   }
 
@@ -1080,6 +1137,7 @@ details.theory li { margin-bottom: 4px; }
   $('volShadows').addEventListener('change', function () { state.volShadows = $('volShadows').checked; update(false); });
   $('boost').addEventListener('change', function () { state.boost = +$('boost').value; update(false); });
   $('bsBoost').addEventListener('change', function () { state.bsBoost = +$('bsBoost').value; update(false); });
+  $('seeThrough').addEventListener('change', function () { state.seeThrough = $('seeThrough').checked; update(false); });
   document.querySelectorAll('[data-slice]').forEach(function (b) { b.addEventListener('click', function () {
     state.slice = b.getAttribute('data-slice');
     document.querySelectorAll('[data-slice]').forEach(function (x) { x.setAttribute('aria-pressed', String(x === b)); });

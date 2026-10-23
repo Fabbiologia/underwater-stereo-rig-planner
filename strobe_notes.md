@@ -11,6 +11,8 @@ Notes behind `strobes.html` (the "Strobe lighting lab" tab). The page renders th
 | Strobe → particle → lens (specks) | marine-snow particles in 16 log-spaced depth slices, lit like the haze, drawn as defocus discs | `particles()`, `speckStats()` |
 | Sun → water → subject / background | E_d(z) = E₀·e^(−K_d·z) with Kirk's K_d; Koschmieder blend toward an approximate horizontal background radiance | `ambientAt()`, `background()` |
 
+Observer view (visualisation aids, labelled on screen): an optional see-through line of sight (attenuation between the observer and the scene limited to that of ~30 m visibility; strobe-to-water paths keep the real water), a fill light on the camera rig, and a "beam shape" mode that scatters equally in all directions and softens the last 12 cm in front of each strobe.
+
 Not modelled: multiple scattering and forward-scatter blur (important beyond 2–3 attenuation lengths), lens vignetting, measured strobe beam profiles, spectral detail beyond three bands, depth of field of the scene (only the particles are defocused).
 
 ## 2. Equations and constants
